@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator, FlatList, Image,
+  ActivityIndicator, Dimensions, FlatList, Image,
   Pressable, ScrollView, StyleSheet, Text, View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -9,7 +9,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { colors, radius, spacing } from "../../constants/theme";
 import { Episode, getEpisodes } from "../../lib/api";
 
-const PAGE_SIZE = 24;
+const { width } = Dimensions.get("window");
+const COLS = 2;
+const GAP = 12;
+const EP_WIDTH = (width - 32 - GAP) / COLS;
+const PAGE_SIZE = 20;
 
 export default function AnimeScreen() {
   const { slug, title } = useLocalSearchParams<{ slug: string; title: string }>();
@@ -38,6 +42,7 @@ export default function AnimeScreen() {
       <View style={styles.center}>
         <StatusBar style="light" />
         <ActivityIndicator color={colors.accent} size="large" />
+        <Text style={styles.loadingText}>Loading episodes...</Text>
       </View>
     );
   }
@@ -49,136 +54,128 @@ export default function AnimeScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backText}>←</Text>
+          <Text style={styles.backArrow}>←</Text>
         </Pressable>
-        <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
+        <View style={styles.headerInfo}>
+          <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
+          <Text style={styles.headerSub}>{episodes.length} episodes</Text>
+        </View>
       </View>
 
-      <FlatList
-        data={paged}
-        keyExtractor={(e) => e.session}
-        numColumns={3}
-        columnWrapperStyle={styles.row}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        ListHeaderComponent={
-          <View>
-            {/* Continue watching */}
-            {lastWatchedEp && (
-              <Pressable style={styles.continueBanner} onPress={() => goWatch(lastWatchedEp)}>
-                <View style={styles.playCircle}>
-                  <Text style={styles.playIcon}>▶</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.continueLabel}>Continue watching</Text>
-                  <Text style={styles.continueEp}>Episode {lastWatchedEp.episode}</Text>
-                </View>
-                <Text style={styles.continueArrow}>›</Text>
-              </Pressable>
-            )}
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-            {/* Stats row */}
-            <View style={styles.statsRow}>
-              <View style={styles.statChip}>
-                <Text style={styles.statText}>📺 {episodes.length} episodes</Text>
+        {/* Continue watching */}
+        {lastWatchedEp && (
+          <Pressable style={styles.continueBanner} onPress={() => goWatch(lastWatchedEp)}>
+            <View style={styles.continueLeft}>
+              <View style={styles.continuePlay}>
+                <Text style={styles.continuePlayIcon}>▶</Text>
+              </View>
+              <View>
+                <Text style={styles.continueLabel}>Continue watching</Text>
+                <Text style={styles.continueEp}>Episode {lastWatchedEp.episode}</Text>
               </View>
             </View>
-
-            {/* Pagination top */}
-            {totalPages > 1 && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.paginationScroll} contentContainerStyle={styles.pagination}>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                  <Pressable key={p} onPress={() => setPage(p)} style={[styles.pageBtn, p === page && styles.pageBtnActive]}>
-                    <Text style={[styles.pageBtnText, p === page && styles.pageBtnTextActive]}>{p}</Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            )}
-          </View>
-        }
-        renderItem={({ item }) => (
-          <Pressable
-            style={[styles.epCard, item.session === lastWatched && styles.epCardWatched]}
-            onPress={() => goWatch(item)}
-          >
-            {item.snapshot ? (
-              <Image source={{ uri: item.snapshot }} style={styles.epImg} resizeMode="cover" />
-            ) : (
-              <View style={[styles.epImg, styles.epPlaceholder]}>
-                <Text style={styles.epPlaceholderText}>▶</Text>
-              </View>
-            )}
-            {item.session === lastWatched && <View style={styles.watchedDot} />}
-            <View style={styles.epInfo}>
-              <Text style={styles.epNum}>Ep {item.episode}</Text>
-              {item.duration ? <Text style={styles.epDur}>{item.duration}</Text> : null}
-            </View>
+            <Text style={styles.continueArrow}>›</Text>
           </Pressable>
         )}
-      />
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pageTabs}>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+              <Pressable key={p} onPress={() => setPage(p)} style={[styles.pageTab, p === page && styles.pageTabActive]}>
+                <Text style={[styles.pageTabText, p === page && styles.pageTabTextActive]}>
+                  {(p - 1) * PAGE_SIZE + 1}–{Math.min(p * PAGE_SIZE, episodes.length)}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        )}
+
+        {/* Episode grid */}
+        <View style={styles.grid}>
+          {paged.map((ep) => (
+            <Pressable
+              key={ep.session}
+              style={[styles.epCard, { width: EP_WIDTH }, ep.session === lastWatched && styles.epCardWatched]}
+              onPress={() => goWatch(ep)}
+            >
+              {ep.snapshot ? (
+                <Image source={{ uri: ep.snapshot }} style={styles.epImg} resizeMode="cover" />
+              ) : (
+                <View style={[styles.epImg, styles.epPlaceholder]}>
+                  <Text style={styles.epPlaceholderIcon}>▶</Text>
+                </View>
+              )}
+              {ep.session === lastWatched && (
+                <View style={styles.watchedBadge}><Text style={styles.watchedText}>Watched</Text></View>
+              )}
+              <View style={styles.epOverlay}>
+                <View style={styles.epPlayBtn}><Text style={styles.epPlayIcon}>▶</Text></View>
+              </View>
+              <View style={styles.epInfo}>
+                <Text style={styles.epNum}>Episode {ep.episode}</Text>
+                {ep.duration ? <Text style={styles.epDur}>{ep.duration}</Text> : null}
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg, gap: 12 },
+  loadingText: { color: colors.muted, fontSize: 14 },
+
   header: {
-    flexDirection: "row", alignItems: "center", gap: spacing.md,
-    paddingHorizontal: spacing.lg, paddingTop: 52, paddingBottom: spacing.md,
+    flexDirection: "row", alignItems: "center", gap: 14,
+    paddingHorizontal: spacing.lg, paddingTop: 52, paddingBottom: 16,
     backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  backBtn: { padding: 4 },
-  backText: { color: colors.text, fontSize: 22, fontWeight: "700" },
-  headerTitle: { flex: 1, color: colors.white, fontSize: 16, fontWeight: "900" },
-  list: { paddingHorizontal: spacing.lg, paddingBottom: 40 },
-  row: { gap: spacing.sm, marginBottom: spacing.sm },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.card, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border },
+  backArrow: { color: colors.text, fontSize: 20, fontWeight: "700" },
+  headerInfo: { flex: 1 },
+  headerTitle: { color: "#fff", fontSize: 17, fontWeight: "900" },
+  headerSub: { color: colors.muted, fontSize: 13, marginTop: 2 },
+
+  scroll: { flex: 1 },
+  content: { padding: spacing.lg, paddingBottom: 48 },
 
   continueBanner: {
-    flexDirection: "row", alignItems: "center", gap: spacing.md,
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     backgroundColor: colors.card, borderWidth: 1, borderColor: colors.accent + "55",
-    borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md, marginTop: spacing.md,
+    borderRadius: radius.xl, padding: 16, marginBottom: 20,
   },
-  playCircle: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: colors.accent, alignItems: "center", justifyContent: "center",
-  },
-  playIcon: { color: "#fff", fontSize: 14, marginLeft: 2 },
-  continueLabel: { color: colors.muted, fontSize: 11 },
-  continueEp: { color: colors.white, fontWeight: "800", fontSize: 14 },
-  continueArrow: { color: colors.muted, fontSize: 22 },
+  continueLeft: { flexDirection: "row", alignItems: "center", gap: 14 },
+  continuePlay: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" },
+  continuePlayIcon: { color: "#fff", fontSize: 16, marginLeft: 3 },
+  continueLabel: { color: colors.muted, fontSize: 12 },
+  continueEp: { color: "#fff", fontWeight: "800", fontSize: 15, marginTop: 2 },
+  continueArrow: { color: colors.muted, fontSize: 26 },
 
-  statsRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
-  statChip: {
-    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 5,
-  },
-  statText: { color: colors.muted, fontSize: 12, fontWeight: "700" },
+  pageTabs: { gap: 8, paddingBottom: 16 },
+  pageTab: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: 14, paddingVertical: 8 },
+  pageTabActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  pageTabText: { color: colors.muted, fontWeight: "700", fontSize: 13 },
+  pageTabTextActive: { color: "#fff" },
 
-  paginationScroll: { marginBottom: spacing.md },
-  pagination: { gap: spacing.sm, paddingVertical: 2 },
-  pageBtn: {
-    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 7, minWidth: 38, alignItems: "center",
-  },
-  pageBtnActive: { backgroundColor: colors.accent, borderColor: colors.accent },
-  pageBtnText: { color: colors.muted, fontWeight: "800", fontSize: 13 },
-  pageBtnTextActive: { color: "#fff" },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: GAP },
 
-  epCard: {
-    flex: 1, backgroundColor: colors.card,
-    borderRadius: radius.md, overflow: "hidden",
-    borderWidth: 1, borderColor: colors.border,
-  },
+  epCard: { borderRadius: radius.lg, overflow: "hidden", backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, marginBottom: 4 },
   epCardWatched: { borderColor: colors.accent + "88" },
   epImg: { width: "100%", aspectRatio: 16 / 9 },
   epPlaceholder: { backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
-  epPlaceholderText: { color: colors.border, fontSize: 16 },
-  watchedDot: {
-    position: "absolute", top: 6, right: 6,
-    width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent,
-  },
-  epInfo: { padding: 6 },
-  epNum: { color: colors.white, fontSize: 11, fontWeight: "800" },
-  epDur: { color: colors.muted, fontSize: 10, marginTop: 1 },
+  epPlaceholderIcon: { color: colors.border, fontSize: 24 },
+  watchedBadge: { position: "absolute", top: 8, left: 8, backgroundColor: colors.accent + "cc", borderRadius: radius.sm, paddingHorizontal: 7, paddingVertical: 3 },
+  watchedText: { color: "#fff", fontSize: 10, fontWeight: "800" },
+  epOverlay: { position: "absolute", bottom: 40, right: 10 },
+  epPlayBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: "rgba(124,58,237,.85)", alignItems: "center", justifyContent: "center" },
+  epPlayIcon: { color: "#fff", fontSize: 11, marginLeft: 2 },
+  epInfo: { padding: 10 },
+  epNum: { color: "#fff", fontSize: 13, fontWeight: "800" },
+  epDur: { color: colors.muted, fontSize: 11, marginTop: 2 },
 });
