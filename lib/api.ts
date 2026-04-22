@@ -1,5 +1,10 @@
 const API_BASE = "https://apis.ayohost.site";
 
+export function proxyImage(url?: string): string | undefined {
+  if (!url) return undefined;
+  return `${API_BASE}/api/proxy/img?url=${encodeURIComponent(url)}`;
+}
+
 export interface AnimeProp {
   session: string;
   title: string;
@@ -29,7 +34,7 @@ export async function getAiring(): Promise<AnimeProp[]> {
   return (j.data || []).map((i: any) => ({
     session: i.anime_session,
     title: i.anime_title,
-    poster: i.snapshot,
+    poster: proxyImage(i.snapshot),
     type: i.fansub || "TV",
     episodes: i.episode,
   }));
@@ -42,7 +47,7 @@ export async function getLatestRelease(page = 1): Promise<PagedResult<AnimeProp>
     data: (j.data || []).map((i: any) => ({
       session: i.anime_session,
       title: i.anime_title,
-      poster: i.snapshot,
+      poster: proxyImage(i.snapshot),
       type: i.fansub || "TV",
       episodes: i.episode,
     })),
@@ -57,7 +62,7 @@ export async function getTopAnime(): Promise<AnimeProp[]> {
   return (j.data || []).slice(0, 12).map((i: any) => ({
     session: i.session || i.anime_session,
     title: i.title || i.anime_title,
-    poster: i.poster || i.snapshot,
+    poster: proxyImage(i.poster || i.snapshot),
     type: i.type || "TV",
     score: i.score,
   }));
@@ -69,7 +74,7 @@ export async function searchAnime(q: string): Promise<AnimeProp[]> {
   return (j.data || []).map((i: any) => ({
     session: i.session,
     title: i.title,
-    poster: i.poster,
+    poster: proxyImage(i.poster),
     type: i.type,
     episodes: i.episodes,
     score: i.score,
@@ -79,7 +84,10 @@ export async function searchAnime(q: string): Promise<AnimeProp[]> {
 export async function getEpisodes(slug: string, title: string): Promise<Episode[]> {
   const r = await fetch(`${API_BASE}/api/anime/${slug}/episodes?anime_name=${encodeURIComponent(title)}`);
   const j = await r.json();
-  return j.data || [];
+  return (j.data || []).map((ep: any) => ({
+    ...ep,
+    snapshot: ep.snapshot ? proxyImage(ep.snapshot) : undefined,
+  }));
 }
 
 export async function getStreamUrl(

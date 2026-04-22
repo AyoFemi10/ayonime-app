@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import * as FileSystem from "expo-file-system";
+import * as MediaLibrary from "expo-media-library";
 import { colors, radius, spacing } from "../constants/theme";
 import { getJobStatus } from "../lib/api";
 import { getMyJobIds, removeMyJobId } from "../lib/downloads";
+
+const API_BASE = "https://apis.ayohost.site";
 
 type DlStatus = "queued" | "resolving" | "downloading" | "compiling" | "done" | "failed";
 
@@ -108,9 +112,29 @@ export default function DownloadsScreen() {
                   </View>
                 )}
                 {job.status === "done" && (
-                  <View style={styles.doneRow}>
-                    <Text style={styles.doneText}>✓ Ready — file saved on server</Text>
-                  </View>
+                  <Pressable
+                    style={styles.saveBtn}
+                    onPress={async () => {
+                      try {
+                        const { status } = await MediaLibrary.requestPermissionsAsync();
+                        if (status !== "granted") {
+                          Alert.alert("Permission needed", "Allow storage access to save videos.");
+                          return;
+                        }
+                        const fileUrl = `${API_BASE}/api/download/${job.job_id}/file`;
+                        const fileName = `AYONIME_${job.anime_title.replace(/[^a-zA-Z0-9]/g, "_")}_Ep${job.episode_number}.mp4`;
+                        const localUri = FileSystem.documentDirectory + fileName;
+                        await FileSystem.downloadAsync(fileUrl, localUri);
+                        const asset = await MediaLibrary.createAssetAsync(localUri);
+                        await MediaLibrary.createAlbumAsync("AYONIME", asset, false);
+                        Alert.alert("✓ Saved!", `${fileName} saved to your gallery.`);
+                      } catch (e: any) {
+                        Alert.alert("Save failed", e?.message || "Something went wrong.");
+                      }
+                    }}
+                  >
+                    <Text style={styles.saveBtnText}>⬇  Save to Device</Text>
+                  </Pressable>
                 )}
                 {job.status === "failed" && job.error && (
                   <Text style={styles.errorText}>{job.error}</Text>
@@ -170,5 +194,7 @@ const styles = StyleSheet.create({
   fill: { height: "100%", backgroundColor: colors.accent, borderRadius: radius.full },
   doneRow: { backgroundColor: "rgba(34,197,94,.1)", borderRadius: radius.lg, padding: 10 },
   doneText: { color: "#4ade80", fontSize: 13, fontWeight: "700" },
+  saveBtn: { backgroundColor: "rgba(34,197,94,.15)", borderWidth: 1, borderColor: "rgba(34,197,94,.4)", borderRadius: radius.lg, paddingVertical: 12, alignItems: "center" },
+  saveBtnText: { color: "#4ade80", fontSize: 14, fontWeight: "800" },
   errorText: { color: "#f87171", fontSize: 13 },
 });
