@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "AYONIME",
+    "slug": "ayonime",
+    "version": "1.0.0",
+    "orientation": "default",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0a0a0f"
+    },
+    "android": {
+      "package": "com.ayomikun.ayonime",
+      "permissions": [
+        "INTERNET"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#0a0a0f"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-screen-orientation",
+      "expo-video"
+    ],
+    "scheme": "ayonime",
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "11309220-3a9e-43ba-a74f-a3e18facf2f3"
+      }
+    }
+  }
+}
