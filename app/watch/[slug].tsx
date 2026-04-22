@@ -31,6 +31,8 @@ export default function WatchScreen() {
   const [error, setError] = useState("");
   const [quality, setQuality] = useState("best");
   const [audio, setAudio] = useState("jpn");
+  const [availableQualities, setAvailableQualities] = useState<string[]>([]);
+  const [availableAudios, setAvailableAudios] = useState<string[]>([]);
   const [dlStatus, setDlStatus] = useState<DlStatus>("idle");
   const [dlProgress, setDlProgress] = useState(0);
   const [controlsVisible, setControlsVisible] = useState(true);
@@ -41,7 +43,22 @@ export default function WatchScreen() {
     if (streamUrl) p.play();
   });
 
-  useEffect(() => { loadStream(); }, [slug, quality, audio]);
+  useEffect(() => {
+    // Fetch available qualities first
+    fetch(`${API_BASE}/api/stream/qualities?anime_slug=${animeSlug}&episode_session=${slug}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.streams?.length) {
+          const qualities = [...new Set<string>(d.streams.map((s: any) => s.quality))];
+          const audios = [...new Set<string>(d.streams.map((s: any) => s.audio))];
+          setAvailableQualities(qualities);
+          setAvailableAudios(audios);
+          setQuality(qualities[0]);
+          setAudio(audios[0]);
+        }
+      })
+      .catch(() => {});
+  }, [slug]);
   useEffect(() => () => { downloadRef.current?.cancelAsync(); }, []);
 
   const loadStream = () => {
@@ -224,7 +241,7 @@ export default function WatchScreen() {
         <View style={styles.controlCard}>
           <Text style={styles.controlLabel}>Quality</Text>
           <View style={styles.optRow}>
-            {QUALITIES.map((q) => (
+            {(availableQualities.length > 0 ? availableQualities : ["best", "1080", "720", "480"]).map((q) => (
               <Pressable key={q} onPress={() => setQuality(q)} style={[styles.optBtn, quality === q && styles.optActive]}>
                 <Text style={[styles.optText, quality === q && styles.optTextActive]}>{q === "best" ? "Best" : `${q}p`}</Text>
               </Pressable>
@@ -236,9 +253,11 @@ export default function WatchScreen() {
         <View style={styles.controlCard}>
           <Text style={styles.controlLabel}>Audio</Text>
           <View style={styles.optRow}>
-            {AUDIOS.map((a) => (
-              <Pressable key={a.value} onPress={() => setAudio(a.value)} style={[styles.optBtn, audio === a.value && styles.optActive]}>
-                <Text style={[styles.optText, audio === a.value && styles.optTextActive]}>{a.label}</Text>
+            {(availableAudios.length > 0 ? availableAudios : ["jpn", "eng"]).map((a) => (
+              <Pressable key={a} onPress={() => setAudio(a)} style={[styles.optBtn, audio === a && styles.optActive]}>
+                <Text style={[styles.optText, audio === a && styles.optTextActive]}>
+                  {a === "jpn" ? "Japanese" : a === "eng" ? "English" : a}
+                </Text>
               </Pressable>
             ))}
           </View>
