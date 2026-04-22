@@ -4,16 +4,18 @@
     "slug": "ayonime",
     "version": "1.0.0",
     "orientation": "default",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
       "backgroundColor": "#0a0a0f"
     },
     "android": {
       "package": "com.ayomikun.ayonime",
-      "permissions": [
-        "INTERNET"
-      ],
+      "permissions": ["INTERNET"],
       "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#0a0a0f"
       }
     },
@@ -27,12 +29,8 @@
       "typedRoutes": true
     },
     "extra": {
-      "router": {
-        "origin": false
-      },
-      "eas": {
-        "projectId": "11309220-3a9e-43ba-a74f-a3e18facf2f3"
-      }
+      "router": { "origin": false },
+      "eas": { "projectId": "11309220-3a9e-43ba-a74f-a3e18facf2f3" }
     }
   }
 }
