@@ -7,6 +7,9 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import * as FileSystem from "expo-file-system";
 import * as MediaLibrary from "expo-media-library";
+import { MotiView } from "moti";
+import { LinearGradient } from "expo-linear-gradient";
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { colors, radius, spacing } from "../../constants/theme";
 import { getStreamUrl } from "../../lib/api";
 import { saveMyJobId } from "../../lib/downloads";
@@ -197,15 +200,19 @@ export default function WatchScreen() {
         </View>
 
         {/* Download to device button */}
-        <Pressable
-          style={[styles.dlBtn, dlStatus === "done" && styles.dlBtnDone, dlStatus === "failed" && styles.dlBtnFailed, isActive && styles.dlBtnActive]}
-          onPress={handleDownload}
-          disabled={isActive}
+        <MotiView
+          animate={{ scale: dlStatus === "done" ? [1, 1.03, 1] : 1 }}
+          transition={{ type: "spring" }}
         >
-          {isActive && <ActivityIndicator color="#fff" size="small" />}
-          <Text style={styles.dlBtnText}>{dlLabel}</Text>
-        </Pressable>
-
+          <Pressable
+            style={[styles.dlBtn, dlStatus === "done" && styles.dlBtnDone, dlStatus === "failed" && styles.dlBtnFailed, isActive && styles.dlBtnActive]}
+            onPress={handleDownload}
+            disabled={isActive}
+          >
+            {isActive && <ActivityIndicator color="#fff" size="small" />}
+            <Text style={styles.dlBtnText}>{dlLabel}</Text>
+          </Pressable>
+        </MotiView>
         {/* Progress bar */}
         {isActive && (
           <View style={styles.progressTrack}>

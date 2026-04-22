@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Dimensions, ScrollView, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { MotiView } from "moti";
+import { LinearGradient } from "expo-linear-gradient";
 import AppHeader from "../components/AppHeader";
 import AnimeCard from "../components/AnimeCard";
+import { SkeletonGrid } from "../components/SkeletonCard";
 import Pagination from "../components/Pagination";
 import { colors, spacing } from "../constants/theme";
 import { AnimeProp, getAiring, getLatestRelease, getTopAnime } from "../lib/api";
@@ -27,42 +30,39 @@ export default function HomeScreen() {
     getLatestRelease(page).then((l) => { setLatest(l.data); setLatestPage(page); }).finally(() => setLatestLoading(false));
   };
 
-  if (loading) return (
-    <View style={styles.splash}>
-      <StatusBar style="light" />
-      <View style={styles.splashLogo}>
-        <View style={styles.splashIcon}><Text style={styles.splashA}>A</Text></View>
-        <Text style={styles.splashName}>AYO<Text style={styles.splashPink}>NIME</Text></Text>
-      </View>
-      <ActivityIndicator color={colors.accent} size="large" style={{ marginTop: 48 }} />
-      <Text style={styles.splashSub}>Loading anime...</Text>
-    </View>
-  );
-
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
       <AppHeader showSearch subtitle="Watch anime free" />
+
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-        {airing.length > 0 && (
-          <Section title="Currently Airing" count={`${airing.length} shows`}>
-            <Grid items={airing} />
-          </Section>
-        )}
+        {/* Hero gradient banner */}
+        <MotiView from={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 600 }}>
+          <LinearGradient
+            colors={[colors.accent + "33", colors.bg]}
+            style={styles.heroBanner}
+          >
+            <Text style={styles.heroTitle}>Watch. Download.</Text>
+            <Text style={styles.heroAccent}>Repeat.</Text>
+            <Text style={styles.heroSub}>Stream anime in HD or save to your device. Free, forever.</Text>
+          </LinearGradient>
+        </MotiView>
 
-        {top.length > 0 && (
-          <Section title="Top Anime" badge="★ Popular">
-            <Grid items={top} />
-          </Section>
-        )}
+        {/* Currently Airing */}
+        <Section title="Currently Airing" count={airing.length > 0 ? `${airing.length} shows` : undefined}>
+          {loading ? <SkeletonGrid count={6} /> : <Grid items={airing} />}
+        </Section>
 
-        <Section title="Latest Release" badge={`Page ${latestPage}/${latestLastPage}`}>
-          {latestLoading
-            ? <View style={styles.loader}><ActivityIndicator color={colors.accent} size="large" /></View>
-            : <Grid items={latest} />
-          }
-          {latestLastPage > 1 && (
+        {/* Top Anime */}
+        <Section title="Top Anime" badge="★ Popular">
+          {loading ? <SkeletonGrid count={6} /> : <Grid items={top} />}
+        </Section>
+
+        {/* Latest Release */}
+        <Section title="Latest Release" badge={latestLastPage > 1 ? `Page ${latestPage}/${latestLastPage}` : undefined}>
+          {loading || latestLoading ? <SkeletonGrid count={6} /> : <Grid items={latest} />}
+          {!loading && latestLastPage > 1 && (
             <Pagination page={latestPage} total={latestLastPage} onChange={loadPage} />
           )}
         </Section>
@@ -74,49 +74,50 @@ export default function HomeScreen() {
 
 function Section({ title, count, badge, children }: { title: string; count?: string; badge?: string; children: React.ReactNode }) {
   return (
-    <View style={sec.wrap}>
-      <View style={sec.header}>
-        <View style={sec.bar} />
-        <Text style={sec.title}>{title}</Text>
-        {count ? <Text style={sec.count}>{count}</Text> : null}
-        {badge ? <View style={sec.badge}><Text style={sec.badgeText}>{badge}</Text></View> : null}
+    <MotiView
+      from={{ opacity: 0, translateY: 16 }}
+      animate={{ opacity: 1, translateY: 0 }}
+      transition={{ type: "timing", duration: 400 }}
+      style={styles.section}
+    >
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionBar} />
+        <Text style={styles.sectionTitle}>{title}</Text>
+        {count ? <Text style={styles.sectionCount}>{count}</Text> : null}
+        {badge ? (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{badge}</Text>
+          </View>
+        ) : null}
       </View>
       {children}
-    </View>
+    </MotiView>
   );
 }
 
 function Grid({ items }: { items: AnimeProp[] }) {
   return (
-    <View style={grid.wrap}>
-      {items.map((item) => <AnimeCard key={item.session} anime={item} />)}
+    <View style={styles.grid}>
+      {items.map((item, i) => <AnimeCard key={item.session} anime={item} index={i} />)}
     </View>
   );
 }
 
-const sec = StyleSheet.create({
-  wrap: { marginBottom: 32 },
-  header: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 16 },
-  bar: { width: 4, height: 24, borderRadius: 4, backgroundColor: colors.accent },
-  title: { color: "#fff", fontSize: 20, fontWeight: "900", flex: 1 },
-  count: { color: colors.muted, fontSize: 13 },
-  badge: { backgroundColor: colors.accent + "22", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3, borderWidth: 1, borderColor: colors.accent + "44" },
-  badgeText: { color: colors.accent, fontSize: 11, fontWeight: "800" },
-});
-
-const grid = StyleSheet.create({
-  wrap: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-});
-
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: spacing.lg, paddingBottom: 24 },
-  loader: { paddingVertical: 60, alignItems: "center" },
-  splash: { flex: 1, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center" },
-  splashLogo: { flexDirection: "row", alignItems: "center", gap: 12 },
-  splashIcon: { width: 52, height: 52, borderRadius: 14, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" },
-  splashA: { color: "#fff", fontWeight: "900", fontSize: 28 },
-  splashName: { color: "#fff", fontWeight: "900", fontSize: 32 },
-  splashPink: { color: colors.pink },
-  splashSub: { color: colors.muted, fontSize: 14, marginTop: 12 },
+  content: { paddingBottom: 32 },
+
+  heroBanner: { marginHorizontal: spacing.lg, marginTop: spacing.lg, marginBottom: 8, borderRadius: 20, padding: 24, gap: 4 },
+  heroTitle: { color: "#fff", fontSize: 28, fontWeight: "900" },
+  heroAccent: { color: colors.pink, fontSize: 28, fontWeight: "900", marginTop: -4 },
+  heroSub: { color: colors.muted, fontSize: 13, marginTop: 8, lineHeight: 19 },
+
+  section: { paddingHorizontal: spacing.lg, marginBottom: 32 },
+  sectionHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 16 },
+  sectionBar: { width: 4, height: 24, borderRadius: 4, backgroundColor: colors.accent },
+  sectionTitle: { color: "#fff", fontSize: 20, fontWeight: "900", flex: 1 },
+  sectionCount: { color: colors.muted, fontSize: 13 },
+  badge: { backgroundColor: colors.accent + "22", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3, borderWidth: 1, borderColor: colors.accent + "44" },
+  badgeText: { color: colors.accent, fontSize: 11, fontWeight: "800" },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
 });
