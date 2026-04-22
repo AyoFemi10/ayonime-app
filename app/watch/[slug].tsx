@@ -1,18 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator, Pressable, ScrollView,
-  StatusBar, StyleSheet, Text, View,
+  ActivityIndicator, Alert, Pressable,
+  ScrollView, StatusBar, StyleSheet, Text, View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
+import * as FileSystem from "expo-file-system";
+import * as MediaLibrary from "expo-media-library";
 import { colors, radius, spacing } from "../../constants/theme";
-import { getStreamUrl, startDownload } from "../../lib/api";
+import { getStreamUrl } from "../../lib/api";
 import { saveMyJobId } from "../../lib/downloads";
 
+const API_BASE = "https://apis.ayohost.site";
 const QUALITIES = ["best", "1080", "720", "480"] as const;
 const AUDIOS = [{ value: "jpn", label: "Japanese" }, { value: "eng", label: "English" }] as const;
 
-type DlStatus = "idle" | "loading" | "queued" | "done" | "failed";
+type DlStatus = "idle" | "requesting" | "downloading" | "saving" | "done" | "failed";
 
 export default function WatchScreen() {
   const { slug, animeSlug, title, ep } = useLocalSearchParams<{
@@ -26,35 +29,98 @@ export default function WatchScreen() {
   const [quality, setQuality] = useState("best");
   const [audio, setAudio] = useState("jpn");
   const [dlStatus, setDlStatus] = useState<DlStatus>("idle");
+  const [dlProgress, setDlProgress] = useState(0);
   const [controlsVisible, setControlsVisible] = useState(true);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const downloadRef = useRef<FileSystem.DownloadResumable | null>(null);
 
-  const player = useVideoPlayer(streamUrl || "", (p) => { p.play(); });
+  const player = useVideoPlayer(streamUrl || "", (p) => {
+    if (streamUrl) p.play();
+  });
 
   useEffect(() => { loadStream(); }, [slug, quality, audio]);
+  useEffect(() => () => { downloadRef.current?.cancelAsync(); }, []);
 
   const loadStream = () => {
     setLoading(true);
     setError("");
     setStreamUrl(null);
     getStreamUrl(animeSlug, slug, quality, audio)
-      .then((url) => { if (!url) setError("Stream not found"); else setStreamUrl(url); })
-      .catch(() => setError("Failed to load stream"))
+      .then((url) => {
+        if (!url) setError("Stream not found. Try a different quality.");
+        else setStreamUrl(url);
+      })
+      .catch(() => setError("Failed to load stream. Check your connection."))
       .finally(() => setLoading(false));
   };
 
   const handleDownload = async () => {
-    if (dlStatus === "done" || dlStatus === "queued") { router.push("/downloads"); return; }
-    setDlStatus("loading");
+    if (dlStatus === "done") {
+      Alert.alert("Downloaded", "Video saved to your gallery.");
+      return;
+    }
+    if (dlStatus === "downloading") return;
+
+    // Request media library permission
+    const { status } = await MediaLibrary.requestPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission needed", "Allow storage access to save videos.");
+      return;
+    }
+
+    setDlStatus("requesting");
+    setDlProgress(0);
+
     try {
-      const jobId = await startDownload({
-        anime_slug: animeSlug, episode_session: slug,
-        anime_title: title || slug, episode_number: parseInt(ep || "0"),
-        quality, audio,
+      // Start server-side job to compile the MP4
+      const r = await fetch(`${API_BASE}/api/download`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          anime_slug: animeSlug,
+          episode_session: slug,
+          anime_title: title || slug,
+          episode_number: parseInt(ep || "0"),
+          quality,
+          audio,
+        }),
       });
-      await saveMyJobId(jobId);
-      setDlStatus("queued");
-    } catch { setDlStatus("failed"); }
+      const { job_id } = await r.json();
+      await saveMyJobId(job_id);
+
+      setDlStatus("downloading");
+
+      // Poll until done
+      const fileUrl = await pollUntilDone(job_id, (pct) => setDlProgress(pct));
+
+      // Download the compiled MP4 to device
+      setDlStatus("saving");
+      const fileName = `AYONIME_${(title || slug).replace(/[^a-zA-Z0-9]/g, "_")}_Ep${ep}.mp4`;
+      const localUri = FileSystem.documentDirectory + fileName;
+
+      downloadRef.current = FileSystem.createDownloadResumable(
+        fileUrl,
+        localUri,
+        {},
+        (progress) => {
+          const pct = Math.round((progress.totalBytesWritten / progress.totalBytesExpectedToWrite) * 100);
+          setDlProgress(pct);
+        }
+      );
+
+      const result = await downloadRef.current.downloadAsync();
+      if (!result?.uri) throw new Error("Download failed");
+
+      // Save to media library (gallery)
+      const asset = await MediaLibrary.createAssetAsync(result.uri);
+      await MediaLibrary.createAlbumAsync("AYONIME", asset, false);
+
+      setDlStatus("done");
+      Alert.alert("✓ Saved!", `${fileName} saved to your gallery.`);
+    } catch (e: any) {
+      setDlStatus("failed");
+      Alert.alert("Download failed", e?.message || "Something went wrong.");
+    }
   };
 
   const showControls = () => {
@@ -64,18 +130,21 @@ export default function WatchScreen() {
   };
 
   const dlLabel = {
-    idle: "⬇  Download MP4",
-    loading: "Starting download...",
-    queued: "✓  Download queued — View",
-    done: "✓  Download queued — View",
+    idle: "⬇  Download to Device",
+    requesting: "Starting...",
+    downloading: `Preparing... ${dlProgress}%`,
+    saving: `Saving... ${dlProgress}%`,
+    done: "✓  Saved to Gallery",
     failed: "↺  Retry Download",
   }[dlStatus];
 
+  const isActive = dlStatus === "requesting" || dlStatus === "downloading" || dlStatus === "saving";
+
   return (
     <View style={styles.root}>
-      <StatusBar style="light" backgroundColor={colors.bg} />
+      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
 
-      {/* Back header */}
+      {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backArrow}>←</Text>
@@ -86,17 +155,17 @@ export default function WatchScreen() {
         </View>
       </View>
 
-      {/* Video player */}
+      {/* Player */}
       <Pressable style={styles.playerWrap} onPress={showControls}>
         {loading && (
           <View style={styles.playerOverlay}>
             <ActivityIndicator color={colors.accent} size="large" />
-            <Text style={styles.playerOverlayText}>Loading stream...</Text>
+            <Text style={styles.overlayText}>Loading stream...</Text>
           </View>
         )}
-        {error ? (
+        {!loading && error ? (
           <View style={styles.playerOverlay}>
-            <Text style={styles.errorIcon}>⚠</Text>
+            <Text style={styles.errorEmoji}>⚠️</Text>
             <Text style={styles.errorText}>{error}</Text>
             <Pressable style={styles.retryBtn} onPress={loadStream}>
               <Text style={styles.retryText}>↺  Retry</Text>
@@ -116,44 +185,41 @@ export default function WatchScreen() {
         ) : null}
       </Pressable>
 
-      {/* Scrollable controls below player */}
+      {/* Controls */}
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-        {/* Title row */}
         <View style={styles.titleRow}>
-          <View style={styles.titleAccent} />
-          <View style={styles.titleInfo}>
+          <View style={styles.titleBar} />
+          <View>
             <Text style={styles.titleText} numberOfLines={2}>{title}</Text>
             <Text style={styles.titleEp}>Episode {ep}</Text>
           </View>
         </View>
 
-        {/* Download button — big and obvious */}
+        {/* Download to device button */}
         <Pressable
-          style={[
-            styles.dlBtn,
-            dlStatus === "queued" || dlStatus === "done" ? styles.dlBtnDone : null,
-            dlStatus === "failed" ? styles.dlBtnFailed : null,
-            dlStatus === "loading" ? styles.dlBtnLoading : null,
-          ]}
+          style={[styles.dlBtn, dlStatus === "done" && styles.dlBtnDone, dlStatus === "failed" && styles.dlBtnFailed, isActive && styles.dlBtnActive]}
           onPress={handleDownload}
-          disabled={dlStatus === "loading"}
+          disabled={isActive}
         >
-          {dlStatus === "loading" ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : null}
+          {isActive && <ActivityIndicator color="#fff" size="small" />}
           <Text style={styles.dlBtnText}>{dlLabel}</Text>
         </Pressable>
+
+        {/* Progress bar */}
+        {isActive && (
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${dlProgress}%` as any }]} />
+          </View>
+        )}
 
         {/* Quality */}
         <View style={styles.controlCard}>
           <Text style={styles.controlLabel}>Quality</Text>
           <View style={styles.optRow}>
             {QUALITIES.map((q) => (
-              <Pressable key={q} onPress={() => setQuality(q)} style={[styles.optBtn, quality === q && styles.optBtnActive]}>
-                <Text style={[styles.optText, quality === q && styles.optTextActive]}>
-                  {q === "best" ? "Best" : `${q}p`}
-                </Text>
+              <Pressable key={q} onPress={() => setQuality(q)} style={[styles.optBtn, quality === q && styles.optActive]}>
+                <Text style={[styles.optText, quality === q && styles.optTextActive]}>{q === "best" ? "Best" : `${q}p`}</Text>
               </Pressable>
             ))}
           </View>
@@ -164,18 +230,14 @@ export default function WatchScreen() {
           <Text style={styles.controlLabel}>Audio</Text>
           <View style={styles.optRow}>
             {AUDIOS.map((a) => (
-              <Pressable key={a.value} onPress={() => setAudio(a.value)} style={[styles.optBtn, audio === a.value && styles.optBtnActive]}>
+              <Pressable key={a.value} onPress={() => setAudio(a.value)} style={[styles.optBtn, audio === a.value && styles.optActive]}>
                 <Text style={[styles.optText, audio === a.value && styles.optTextActive]}>{a.label}</Text>
               </Pressable>
             ))}
           </View>
         </View>
 
-        {/* All episodes link */}
-        <Pressable
-          style={styles.allEpsBtn}
-          onPress={() => router.push({ pathname: "/anime/[slug]", params: { slug: animeSlug, title } })}
-        >
+        <Pressable style={styles.allEpsBtn} onPress={() => router.push({ pathname: "/anime/[slug]", params: { slug: animeSlug, title } })}>
           <Text style={styles.allEpsBtnText}>← All Episodes</Text>
         </Pressable>
 
@@ -184,73 +246,67 @@ export default function WatchScreen() {
   );
 }
 
+async function pollUntilDone(jobId: string, onProgress: (pct: number) => void): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const interval = setInterval(async () => {
+      try {
+        const r = await fetch(`${API_BASE}/api/download/${jobId}/status`);
+        const job = await r.json();
+        onProgress(job.progress || 0);
+        if (job.status === "done") {
+          clearInterval(interval);
+          resolve(`${API_BASE}/api/download/${jobId}/file`);
+        } else if (job.status === "failed") {
+          clearInterval(interval);
+          reject(new Error(job.error || "Server compilation failed"));
+        }
+      } catch (e) {
+        clearInterval(interval);
+        reject(e);
+      }
+    }, 2000);
+  });
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-
-  header: {
-    flexDirection: "row", alignItems: "center", gap: 12,
-    paddingHorizontal: spacing.lg, paddingTop: 52, paddingBottom: 14,
-    backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.card, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border },
-  backArrow: { color: colors.text, fontSize: 20, fontWeight: "700" },
+  header: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: spacing.lg, paddingTop: 48, paddingBottom: 14, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
+  backArrow: { color: "#fff", fontSize: 20, fontWeight: "700" },
   headerInfo: { flex: 1 },
   headerTitle: { color: "#fff", fontSize: 15, fontWeight: "900" },
   headerEp: { color: colors.muted, fontSize: 12, marginTop: 2 },
-
-  playerWrap: {
-    width: "100%", aspectRatio: 16 / 9,
-    backgroundColor: "#000", justifyContent: "center", alignItems: "center",
-  },
+  playerWrap: { width: "100%", aspectRatio: 16 / 9, backgroundColor: "#000" },
   video: { width: "100%", height: "100%" },
   playerOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "#000", alignItems: "center", justifyContent: "center", gap: 14 },
-  playerOverlayText: { color: colors.muted, fontSize: 14 },
-  errorIcon: { fontSize: 40 },
-  errorText: { color: "#fff", fontSize: 15, fontWeight: "600", textAlign: "center", paddingHorizontal: 32 },
+  overlayText: { color: colors.muted, fontSize: 14 },
+  errorEmoji: { fontSize: 40 },
+  errorText: { color: "#fff", fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
   retryBtn: { backgroundColor: colors.accent, paddingHorizontal: 28, paddingVertical: 12, borderRadius: radius.lg },
   retryText: { color: "#fff", fontWeight: "800", fontSize: 15 },
   playerControls: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },
   bigPlayBtn: { width: 64, height: 64, borderRadius: 32, backgroundColor: "rgba(124,58,237,.85)", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "rgba(255,255,255,.3)" },
   bigPlayIcon: { color: "#fff", fontSize: 26 },
-
   scroll: { flex: 1 },
   scrollContent: { padding: spacing.lg, gap: spacing.md, paddingBottom: 48 },
-
   titleRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
-  titleAccent: { width: 4, height: "100%", minHeight: 40, borderRadius: 4, backgroundColor: colors.accent, marginTop: 2 },
-  titleInfo: { flex: 1 },
-  titleText: { color: "#fff", fontSize: 18, fontWeight: "900", lineHeight: 24 },
+  titleBar: { width: 4, height: 44, borderRadius: 4, backgroundColor: colors.accent, marginTop: 2 },
+  titleText: { color: "#fff", fontSize: 18, fontWeight: "900" },
   titleEp: { color: colors.muted, fontSize: 14, marginTop: 4 },
-
-  dlBtn: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
-    backgroundColor: colors.accent, borderRadius: radius.xl,
-    paddingVertical: 16, paddingHorizontal: 24,
-    shadowColor: colors.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12,
-    elevation: 8,
-  },
+  dlBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: colors.accent, borderRadius: radius.xl, paddingVertical: 16, elevation: 6 },
   dlBtnDone: { backgroundColor: "#16a34a" },
   dlBtnFailed: { backgroundColor: "#dc2626" },
-  dlBtnLoading: { opacity: 0.7 },
+  dlBtnActive: { opacity: 0.8 },
   dlBtnText: { color: "#fff", fontWeight: "900", fontSize: 16 },
-
-  controlCard: {
-    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radius.xl, padding: 16, gap: 12,
-  },
+  progressTrack: { height: 6, backgroundColor: colors.border, borderRadius: radius.full, overflow: "hidden" },
+  progressFill: { height: "100%", backgroundColor: colors.accent, borderRadius: radius.full },
+  controlCard: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, padding: 16, gap: 12 },
   controlLabel: { color: colors.muted, fontSize: 12, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1 },
   optRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
-  optBtn: {
-    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radius.lg, paddingHorizontal: 16, paddingVertical: 9,
-  },
-  optBtnActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  optBtn: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: 16, paddingVertical: 9 },
+  optActive: { backgroundColor: colors.accent, borderColor: colors.accent },
   optText: { color: colors.muted, fontWeight: "700", fontSize: 14 },
   optTextActive: { color: "#fff" },
-
-  allEpsBtn: {
-    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radius.xl, paddingVertical: 14, alignItems: "center",
-  },
+  allEpsBtn: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, paddingVertical: 14, alignItems: "center" },
   allEpsBtnText: { color: colors.muted, fontWeight: "700", fontSize: 14 },
 });
