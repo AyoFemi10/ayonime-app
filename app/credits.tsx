@@ -1,7 +1,32 @@
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
+import Svg, { Path, Circle } from "react-native-svg";
 import { colors, radius, spacing } from "../constants/theme";
+
+function TelegramIcon({ size = 28, color = "#fff" }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <Path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.17 13.667l-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.978.892z" />
+    </Svg>
+  );
+}
+
+function GitHubIcon({ size = 28, color = "#fff" }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <Path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z" />
+    </Svg>
+  );
+}
+
+function ChannelIcon({ size = 28, color = "#fff" }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <Path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.17 13.667l-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.978.892z" />
+    </Svg>
+  );
+}
 
 export default function CreditsScreen() {
   return (
@@ -22,9 +47,9 @@ export default function CreditsScreen() {
             No ads, no subscriptions, just pure anime.
           </Text>
           <View style={styles.socialRow}>
-            <SocialBtn label="Telegram" emoji="✈️" url="https://t.me/ayomikundev" />
-            <SocialBtn label="GitHub" emoji="🐙" url="https://github.com/AyoFemi10" />
-            <SocialBtn label="Channel" emoji="📢" url="https://t.me/ayomikun_" />
+            <SocialBtn label="Telegram" icon={<TelegramIcon />} bg="#229ED9" url="https://t.me/ayomikundev" />
+            <SocialBtn label="GitHub" icon={<GitHubIcon />} bg="#333" url="https://github.com/AyoFemi10" />
+            <SocialBtn label="Channel" icon={<ChannelIcon />} bg="#229ED9" url="https://t.me/ayomikun_" />
           </View>
         </LinearGradient>
 
@@ -48,10 +73,10 @@ export default function CreditsScreen() {
   );
 }
 
-function SocialBtn({ label, emoji, url }: { label: string; emoji: string; url: string }) {
+function SocialBtn({ label, icon, bg, url }: { label: string; icon: React.ReactNode; bg: string; url: string }) {
   return (
-    <Pressable style={sb.btn} onPress={() => Linking.openURL(url)}>
-      <Text style={sb.emoji}>{emoji}</Text>
+    <Pressable style={[sb.btn, { backgroundColor: bg }]} onPress={() => Linking.openURL(url)}>
+      {icon}
       <Text style={sb.label}>{label}</Text>
     </Pressable>
   );
@@ -70,8 +95,7 @@ function CreditCard({ emoji, title, desc }: { emoji: string; title: string; desc
 }
 
 const sb = StyleSheet.create({
-  btn: { flex: 1, backgroundColor: "rgba(255,255,255,.1)", borderRadius: radius.lg, paddingVertical: 10, alignItems: "center", gap: 4 },
-  emoji: { fontSize: 20 },
+  btn: { flex: 1, borderRadius: radius.lg, paddingVertical: 12, alignItems: "center", gap: 6 },
   label: { color: "#fff", fontSize: 11, fontWeight: "700" },
 });
 

@@ -23,7 +23,8 @@
       "expo-router",
       "expo-screen-orientation",
       "expo-video",
-      "expo-media-library"
+      "expo-media-library",
+      "react-native-svg"
     ],
     "scheme": "ayonime",
     "experiments": {

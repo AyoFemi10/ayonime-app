@@ -16,6 +16,7 @@
     "expo-media-library": "~16.0.0",
     "expo-constants": "~16.0.0",
     "expo-linear-gradient": "~13.0.0",
+    "react-native-svg": "15.2.0",
     "react-native-reanimated": "~3.10.0",
     "react-native-gesture-handler": "~2.16.0",
     "moti": "^0.29.0",
