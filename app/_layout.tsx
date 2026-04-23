@@ -2,6 +2,7 @@ import { Tabs } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import UpdateChecker from "../components/UpdateChecker";
 import { colors } from "../constants/theme";
 
 function TabIcon({ emoji, label, focused }: { emoji: string; label: string; focused: boolean }) {
@@ -25,6 +26,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="light" backgroundColor={colors.bg} />
+      <UpdateChecker />
       <Tabs
         screenOptions={{
           headerShown: false,
