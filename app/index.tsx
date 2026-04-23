@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator, Dimensions, FlatList,
-  Pressable, ScrollView, StyleSheet, Text, View,
+  Pressable, RefreshControl, ScrollView, StyleSheet, Text, View,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -22,9 +22,10 @@ export default function HomeScreen() {
   const [airing, setAiring] = useState<AnimeProp[]>([]);
   const [genreData, setGenreData] = useState<Record<string, AnimeProp[]>>({});
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    Promise.all([
+  const loadAll = useCallback(() => {
+    return Promise.all([
       getLatestRelease(1),
       getAiring(),
       ...FEATURED_GENRES.map((g) => getByGenre(g, 1)),
@@ -34,8 +35,15 @@ export default function HomeScreen() {
       const gd: Record<string, AnimeProp[]> = {};
       FEATURED_GENRES.forEach((g, i) => { gd[g] = genreResults[i].data.slice(0, 10); });
       setGenreData(gd);
-    }).finally(() => setLoading(false));
+    });
   }, []);
+
+  useEffect(() => { loadAll().finally(() => setLoading(false)); }, []);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadAll().finally(() => setRefreshing(false));
+  }, [loadAll]);
 
   const renderCard = useCallback(({ item }: { item: AnimeProp }) => <AnimeCard anime={item} />, []);
   const keyExtractor = useCallback((item: AnimeProp) => item.session, []);
@@ -57,7 +65,12 @@ export default function HomeScreen() {
       <StatusBar style="light" />
       <AppHeader showSearch subtitle="Watch anime free" />
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} removeClippedSubviews>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        removeClippedSubviews
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
+      >
 
         {/* Hero */}
         <LinearGradient colors={[colors.accent + "44", colors.bg]} style={styles.hero}>

@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as SplashScreen from "expo-splash-screen";
 import { Ionicons } from "@expo/vector-icons";
 import UpdateChecker from "../components/UpdateChecker";
+import OfflineBanner from "../components/OfflineBanner";
 import { colors } from "../constants/theme";
 
 SplashScreen.preventAutoHideAsync();
@@ -30,6 +31,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="light" backgroundColor={colors.bg} />
+      <OfflineBanner />
       <UpdateChecker />
       <Tabs
         screenOptions={{
@@ -76,8 +78,8 @@ export default function RootLayout() {
         <Tabs.Screen
           name="settings"
           options={{
-            title: "Settings",
-            tabBarIcon: ({ focused }) => <TabIcon name="settings" focused={focused} />,
+            title: "Library",
+            tabBarIcon: ({ focused }) => <TabIcon name="library" focused={focused} />,
           }}
         />
         <Tabs.Screen

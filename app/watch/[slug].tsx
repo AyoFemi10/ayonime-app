@@ -11,6 +11,7 @@ import { colors, radius, spacing } from "../../constants/theme";
 import { getStreamUrl } from "../../lib/api";
 import { saveMyJobId } from "../../lib/downloads";
 import { hapticLight, hapticMedium, hapticSuccess, hapticError } from "../../lib/haptics";
+import { addToHistory, saveProgress, getProgress } from "../../lib/storage";
 
 const API_BASE = "https://apis.ayohost.site";
 
@@ -35,9 +36,37 @@ export default function WatchScreen() {
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const downloadRef = useRef<FileSystem.DownloadResumable | null>(null);
   const qualityReady = useRef(false);
+  const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Save progress every 5 seconds while playing
+  useEffect(() => {
+    progressInterval.current = setInterval(() => {
+      if (player.playing && player.duration > 0) {
+        saveProgress(slug, player.currentTime, player.duration);
+      }
+    }, 5000);
+    return () => {
+      if (progressInterval.current) clearInterval(progressInterval.current);
+      // Save on unmount too
+      if (player.duration > 0) saveProgress(slug, player.currentTime, player.duration);
+    };
+  }, []);
 
   const player = useVideoPlayer(streamUrl || "", (p) => {
-    if (streamUrl) p.play();
+    if (streamUrl) {
+      // Restore saved progress
+      getProgress(slug).then((prog) => {
+        if (prog && prog.currentTime > 10) p.currentTime = prog.currentTime;
+      });
+      p.play();
+      // Save to history
+      addToHistory({
+        animeSession: animeSlug,
+        animeTitle: title || slug,
+        episodeSession: slug,
+        episodeNumber: parseInt(ep || "0"),
+      });
+    }
   });
 
   // Step 1: fetch available qualities

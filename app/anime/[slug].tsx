@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator, Dimensions, FlatList, Image,
-  Pressable, ScrollView, StyleSheet, Text, View,
+  Pressable, RefreshControl, ScrollView, StyleSheet, Text, View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { colors, radius, spacing } from "../../constants/theme";
 import { Episode, getEpisodes } from "../../lib/api";
+import { addToWatchlist, getAllProgress, isInWatchlist, removeFromWatchlist } from "../../lib/storage";
+import { hapticLight, hapticMedium } from "../../lib/haptics";
 
 const { width } = Dimensions.get("window");
 const COLS = 2;
@@ -20,13 +23,44 @@ export default function AnimeScreen() {
   const router = useRouter();
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [lastWatched, setLastWatched] = useState<string | null>(null);
+  const [inWatchlist, setInWatchlist] = useState(false);
+  const [progress, setProgress] = useState<Record<string, { pct: number }>>({});
+
+  const loadData = async () => {
+    const [eps, prog, wl] = await Promise.all([
+      getEpisodes(slug, title || slug),
+      getAllProgress(),
+      isInWatchlist(slug),
+      AsyncStorage.getItem(`last_watched_${slug}`).then(setLastWatched),
+    ]);
+    setEpisodes(eps);
+    setProgress(prog);
+    setInWatchlist(wl);
+  };
 
   useEffect(() => {
-    getEpisodes(slug, title || slug).then(setEpisodes).finally(() => setLoading(false));
-    AsyncStorage.getItem(`last_watched_${slug}`).then(setLastWatched);
+    loadData().finally(() => setLoading(false));
   }, [slug]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
+
+  const toggleWatchlist = async () => {
+    hapticMedium();
+    if (inWatchlist) {
+      await removeFromWatchlist(slug);
+      setInWatchlist(false);
+    } else {
+      await addToWatchlist({ session: slug, title: title || slug });
+      setInWatchlist(true);
+    }
+  };
 
   const totalPages = Math.ceil(episodes.length / PAGE_SIZE);
   const paged = episodes.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -60,9 +94,21 @@ export default function AnimeScreen() {
           <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
           <Text style={styles.headerSub}>{episodes.length} episodes</Text>
         </View>
+        <Pressable onPress={toggleWatchlist} style={styles.watchlistBtn}>
+          <Ionicons
+            name={inWatchlist ? "bookmark" : "bookmark-outline"}
+            size={22}
+            color={inWatchlist ? colors.accent : colors.muted}
+          />
+        </Pressable>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
+      >
 
         {/* Continue watching */}
         {lastWatchedEp && (
@@ -118,6 +164,12 @@ export default function AnimeScreen() {
                 <Text style={styles.epNum}>Episode {ep.episode}</Text>
                 {ep.duration ? <Text style={styles.epDur}>{ep.duration}</Text> : null}
               </View>
+              {/* Progress bar */}
+              {progress[ep.session]?.pct > 0 && (
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${Math.min(progress[ep.session].pct * 100, 100)}%` as any }]} />
+                </View>
+              )}
             </Pressable>
           ))}
         </View>
@@ -141,6 +193,7 @@ const styles = StyleSheet.create({
   headerInfo: { flex: 1 },
   headerTitle: { color: "#fff", fontSize: 17, fontWeight: "900" },
   headerSub: { color: colors.muted, fontSize: 13, marginTop: 2 },
+  watchlistBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.card, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border },
 
   scroll: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: 48 },
@@ -178,4 +231,6 @@ const styles = StyleSheet.create({
   epInfo: { padding: 10 },
   epNum: { color: "#fff", fontSize: 13, fontWeight: "800" },
   epDur: { color: colors.muted, fontSize: 11, marginTop: 2 },
+  progressTrack: { height: 3, backgroundColor: colors.border, marginHorizontal: 0 },
+  progressFill: { height: "100%", backgroundColor: colors.accent },
 });
