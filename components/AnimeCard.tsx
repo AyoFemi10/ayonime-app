@@ -1,36 +1,81 @@
+import { useEffect, useState } from "react";
 import { Dimensions, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import Animated, {
+  cancelAnimation, useAnimatedStyle, useSharedValue,
+  withRepeat, withSequence, withSpring, withTiming,
+} from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, radius } from "../constants/theme";
 import { AnimeProp } from "../lib/api";
+import { hapticLight } from "../lib/haptics";
 
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = (width - 32 - 12) / 2;
 
+function ImageShimmer({ cardWidth }: { cardWidth: number }) {
+  const shimmerX = useSharedValue(-cardWidth);
+
+  useEffect(() => {
+    shimmerX.value = withRepeat(
+      withTiming(cardWidth * 2, { duration: 1200 }),
+      -1,
+      false
+    );
+    return () => cancelAnimation(shimmerX);
+  }, []);
+
+  const shimmerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: shimmerX.value }],
+  }));
+
+  return (
+    <View style={[StyleSheet.absoluteFill, { overflow: "hidden", backgroundColor: colors.card }]}>
+      <Animated.View style={[StyleSheet.absoluteFill, shimmerStyle]}>
+        <LinearGradient
+          colors={["transparent", "rgba(255,255,255,0.06)", "transparent"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={{ flex: 1, width: cardWidth }}
+        />
+      </Animated.View>
+    </View>
+  );
+}
+
 export default function AnimeCard({ anime, horizontal }: { anime: AnimeProp; horizontal?: boolean }) {
   const router = useRouter();
   const scale = useSharedValue(1);
-  const cardW = horizontal ? CARD_WIDTH * 0.7 : CARD_WIDTH;
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const cardW = horizontal ? CARD_WIDTH * 0.65 : CARD_WIDTH;
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
+
+  const handlePress = () => {
+    hapticLight();
+    router.push({ pathname: "/anime/[slug]", params: { slug: anime.session, title: anime.title } });
+  };
 
   return (
     <Animated.View style={[{ width: cardW }, animStyle]}>
       <Pressable
         onPressIn={() => { scale.value = withSpring(0.95, { damping: 20, stiffness: 300 }); }}
         onPressOut={() => { scale.value = withSpring(1, { damping: 20, stiffness: 300 }); }}
-        onPress={() => router.push({ pathname: "/anime/[slug]", params: { slug: anime.session, title: anime.title } })}
+        onPress={handlePress}
       >
-        <View style={styles.posterWrap}>
+        <View style={[styles.posterWrap, { height: cardW * 1.5 }]}>
+          {/* Shimmer while loading */}
+          {!imageLoaded && <ImageShimmer cardWidth={cardW} />}
+
           {anime.poster ? (
             <Image
               source={{ uri: anime.poster }}
-              style={styles.poster}
+              style={[styles.poster, !imageLoaded && { opacity: 0 }]}
               resizeMode="cover"
-              fadeDuration={200}
+              onLoad={() => setImageLoaded(true)}
+              fadeDuration={300}
             />
           ) : (
             <View style={[styles.poster, styles.fallback]}>
@@ -39,7 +84,7 @@ export default function AnimeCard({ anime, horizontal }: { anime: AnimeProp; hor
           )}
 
           <LinearGradient
-            colors={["transparent", "rgba(0,0,0,0.8)"]}
+            colors={["transparent", "rgba(0,0,0,0.85)"]}
             style={styles.gradient}
           />
 
@@ -70,7 +115,7 @@ export default function AnimeCard({ anime, horizontal }: { anime: AnimeProp; hor
 }
 
 const styles = StyleSheet.create({
-  posterWrap: { borderRadius: radius.lg, overflow: "hidden", aspectRatio: 2 / 3, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
+  posterWrap: { borderRadius: radius.lg, overflow: "hidden", backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
   poster: { width: "100%", height: "100%" },
   fallback: { alignItems: "center", justifyContent: "center", backgroundColor: colors.surface },
   fallbackText: { color: colors.muted, fontSize: 32, fontWeight: "900" },

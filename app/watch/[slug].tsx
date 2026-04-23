@@ -10,6 +10,7 @@ import * as MediaLibrary from "expo-media-library";
 import { colors, radius, spacing } from "../../constants/theme";
 import { getStreamUrl } from "../../lib/api";
 import { saveMyJobId } from "../../lib/downloads";
+import { hapticLight, hapticMedium, hapticSuccess, hapticError } from "../../lib/haptics";
 
 const API_BASE = "https://apis.ayohost.site";
 
@@ -122,9 +123,11 @@ export default function WatchScreen() {
       const asset = await MediaLibrary.createAssetAsync(result.uri);
       await MediaLibrary.createAlbumAsync("AYONIME", asset, false);
       setDlStatus("done");
+      hapticSuccess();
       Alert.alert("✓ Saved!", `${fileName} saved to your gallery.`);
     } catch (e: any) {
       setDlStatus("failed");
+      hapticError();
       Alert.alert("Download failed", e?.message || "Something went wrong.");
     }
   };
@@ -199,7 +202,7 @@ export default function WatchScreen() {
 
         <Pressable
           style={[styles.dlBtn, dlStatus === "done" && styles.dlBtnDone, dlStatus === "failed" && styles.dlBtnFailed, isActive && styles.dlBtnActive]}
-          onPress={handleDownload}
+          onPress={() => { hapticMedium(); handleDownload(); }}
           disabled={isActive}
         >
           {isActive && <ActivityIndicator color="#fff" size="small" />}

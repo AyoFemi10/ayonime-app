@@ -1,28 +1,32 @@
+import { useEffect } from "react";
 import { Tabs } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import * as SplashScreen from "expo-splash-screen";
+import { Ionicons } from "@expo/vector-icons";
 import UpdateChecker from "../components/UpdateChecker";
 import { colors } from "../constants/theme";
 
-function TabIcon({ emoji, label, focused }: { emoji: string; label: string; focused: boolean }) {
+SplashScreen.preventAutoHideAsync();
+
+function TabIcon({ name, focused }: { name: React.ComponentProps<typeof Ionicons>["name"]; focused: boolean }) {
   return (
-    <View style={[ti.wrap, focused && ti.wrapActive]}>
-      <Text style={ti.emoji}>{emoji}</Text>
-      <Text style={[ti.label, focused && ti.labelActive]}>{label}</Text>
-    </View>
+    <Ionicons
+      name={focused ? name : `${name}-outline` as any}
+      size={24}
+      color={focused ? colors.accent : colors.muted}
+    />
   );
 }
 
-const ti = StyleSheet.create({
-  wrap: { alignItems: "center", justifyContent: "center", paddingTop: 6, paddingHorizontal: 8, gap: 3, borderRadius: 12, minWidth: 60 },
-  wrapActive: { backgroundColor: colors.accent + "22" },
-  emoji: { fontSize: 20 },
-  label: { color: colors.muted, fontSize: 10, fontWeight: "700" },
-  labelActive: { color: colors.accent },
-});
-
 export default function RootLayout() {
+  useEffect(() => {
+    // Hide splash after a short delay to let fonts/assets load
+    const timer = setTimeout(() => SplashScreen.hideAsync(), 500);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="light" backgroundColor={colors.bg} />
@@ -34,34 +38,55 @@ export default function RootLayout() {
             backgroundColor: colors.surface,
             borderTopColor: colors.border,
             borderTopWidth: 1,
-            height: 70,
+            height: 64,
             paddingBottom: 8,
-            paddingTop: 4,
+            paddingTop: 6,
           },
-          tabBarShowLabel: false,
+          tabBarShowLabel: true,
+          tabBarLabelStyle: {
+            fontSize: 10,
+            fontWeight: "700",
+            marginTop: -2,
+          },
+          tabBarActiveTintColor: colors.accent,
+          tabBarInactiveTintColor: colors.muted,
         }}
       >
         <Tabs.Screen
           name="index"
-          options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="🏠" label="Home" focused={focused} /> }}
+          options={{
+            title: "Home",
+            tabBarIcon: ({ focused }) => <TabIcon name="home" focused={focused} />,
+          }}
         />
         <Tabs.Screen
           name="search"
-          options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="🔍" label="Search" focused={focused} /> }}
+          options={{
+            title: "Search",
+            tabBarIcon: ({ focused }) => <TabIcon name="search" focused={focused} />,
+          }}
         />
         <Tabs.Screen
           name="downloads"
-          options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="⬇" label="Downloads" focused={focused} /> }}
+          options={{
+            title: "Downloads",
+            tabBarIcon: ({ focused }) => <TabIcon name="download" focused={focused} />,
+          }}
         />
         <Tabs.Screen
           name="settings"
-          options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="⚙️" label="Settings" focused={focused} /> }}
+          options={{
+            title: "Settings",
+            tabBarIcon: ({ focused }) => <TabIcon name="settings" focused={focused} />,
+          }}
         />
         <Tabs.Screen
           name="credits"
-          options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="ℹ️" label="Credits" focused={focused} /> }}
+          options={{
+            title: "Credits",
+            tabBarIcon: ({ focused }) => <TabIcon name="information-circle" focused={focused} />,
+          }}
         />
-        {/* Hidden screens */}
         <Tabs.Screen name="anime/[slug]" options={{ href: null }} />
         <Tabs.Screen name="watch/[slug]" options={{ href: null }} />
       </Tabs>

@@ -10,8 +10,7 @@
       "image": "./assets/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#0a0a0f"
-    },
-    "android": {
+    },    "android": {
       "package": "com.ayomikun.ayonime",
       "permissions": ["INTERNET", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE"],
       "adaptiveIcon": {
