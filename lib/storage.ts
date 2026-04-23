@@ -133,3 +133,64 @@ export async function savePreferences(prefs: Partial<Preferences>) {
     await AsyncStorage.setItem(PREFS_KEY, JSON.stringify({ ...current, ...prefs }));
   } catch {}
 }
+
+// ── Recent Searches ───────────────────────────────────────────────────────────
+
+const SEARCHES_KEY = "ayonime_recent_searches";
+
+export async function addRecentSearch(query: string) {
+  try {
+    const searches = await getRecentSearches();
+    const filtered = searches.filter((s) => s !== query);
+    filtered.unshift(query);
+    await AsyncStorage.setItem(SEARCHES_KEY, JSON.stringify(filtered.slice(0, 10)));
+  } catch {}
+}
+
+export async function getRecentSearches(): Promise<string[]> {
+  try {
+    const raw = await AsyncStorage.getItem(SEARCHES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+export async function clearRecentSearches() {
+  await AsyncStorage.removeItem(SEARCHES_KEY);
+}
+
+// ── Local Downloads ───────────────────────────────────────────────────────────
+
+const LOCAL_DL_KEY = "ayonime_local_downloads";
+
+export interface LocalDownload {
+  jobId: string;
+  animeTitle: string;
+  episodeNumber: number;
+  fileName: string;
+  localUri: string;
+  savedAt: number;
+  fileSize?: number;
+}
+
+export async function saveLocalDownload(item: LocalDownload) {
+  try {
+    const list = await getLocalDownloads();
+    const filtered = list.filter((d) => d.jobId !== item.jobId);
+    filtered.unshift(item);
+    await AsyncStorage.setItem(LOCAL_DL_KEY, JSON.stringify(filtered));
+  } catch {}
+}
+
+export async function getLocalDownloads(): Promise<LocalDownload[]> {
+  try {
+    const raw = await AsyncStorage.getItem(LOCAL_DL_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+export async function removeLocalDownload(jobId: string) {
+  try {
+    const list = (await getLocalDownloads()).filter((d) => d.jobId !== jobId);
+    await AsyncStorage.setItem(LOCAL_DL_KEY, JSON.stringify(list));
+  } catch {}
+}
