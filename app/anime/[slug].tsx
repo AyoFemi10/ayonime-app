@@ -8,6 +8,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Sharing from "expo-sharing";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { colors, radius, spacing } from "../../constants/theme";
 import { AnimeInfo, Episode, getAnimeInfo, getEpisodes } from "../../lib/api";
@@ -67,6 +68,18 @@ export default function AnimeScreen() {
     }
   };
 
+  const handleShare = async () => {
+    hapticLight();
+    try {
+      const available = await Sharing.isAvailableAsync();
+      if (available) {
+        await Sharing.shareAsync(`https://ayonime.ayohost.site/anime/${slug}?title=${encodeURIComponent(title || slug)}`, {
+          dialogTitle: `Watch ${title || slug} on AYONIME`,
+        });
+      }
+    } catch {}
+  };
+
   const totalPages = Math.ceil(episodes.length / PAGE_SIZE);
   const paged = episodes.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const lastWatchedEp = episodes.find((e) => e.session === lastWatched);
@@ -78,10 +91,29 @@ export default function AnimeScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
+      <View style={styles.root}>
         <StatusBar style="light" />
-        <ActivityIndicator color={colors.accent} size="large" />
-        <Text style={styles.loadingText}>Loading episodes...</Text>
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+            <Text style={styles.backArrow}>←</Text>
+          </Pressable>
+          <View style={styles.headerInfo}>
+            <View style={styles.skeletonTitle} />
+            <View style={styles.skeletonSub} />
+          </View>
+        </View>
+        {/* Skeleton poster */}
+        <View style={styles.skeletonPoster} />
+        <View style={{ padding: spacing.lg, gap: 12 }}>
+          <View style={styles.skeletonLine} />
+          <View style={[styles.skeletonLine, { width: "70%" }]} />
+          <View style={[styles.skeletonLine, { width: "85%" }]} />
+        </View>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, padding: spacing.lg }}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <View key={i} style={styles.skeletonEp} />
+          ))}
+        </View>
       </View>
     );
   }
@@ -105,6 +137,9 @@ export default function AnimeScreen() {
             size={22}
             color={inWatchlist ? colors.accent : colors.muted}
           />
+        </Pressable>
+        <Pressable onPress={handleShare} style={styles.watchlistBtn}>
+          <Ionicons name="share-outline" size={22} color={colors.muted} />
         </Pressable>
       </View>
 
@@ -270,6 +305,11 @@ const styles = StyleSheet.create({
   epDur: { color: colors.muted, fontSize: 11, marginTop: 2 },
   progressTrack: { height: 3, backgroundColor: colors.border, marginHorizontal: 0 },
   progressFill: { height: "100%", backgroundColor: colors.accent },
+  skeletonTitle: { height: 18, width: "60%", backgroundColor: colors.card, borderRadius: 6 },
+  skeletonSub: { height: 12, width: "30%", backgroundColor: colors.card, borderRadius: 4, marginTop: 6 },
+  skeletonPoster: { width: "100%", height: 180, backgroundColor: colors.card },
+  skeletonLine: { height: 13, width: "100%", backgroundColor: colors.card, borderRadius: 4 },
+  skeletonEp: { width: EP_WIDTH, aspectRatio: 16 / 9, backgroundColor: colors.card, borderRadius: radius.lg },
   infoCard: { backgroundColor: colors.card, borderRadius: radius.xl, overflow: "hidden", marginBottom: 16, borderWidth: 1, borderColor: colors.border },
   infoPoster: { width: "100%", height: 180 },
   infoDetails: { padding: 14, gap: 10 },

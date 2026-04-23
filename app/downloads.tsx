@@ -9,6 +9,8 @@ import { getJobStatus } from "../lib/api";
 import { getMyJobIds, removeMyJobId } from "../lib/downloads";
 import { getLocalDownloads, LocalDownload, removeLocalDownload } from "../lib/storage";
 
+import EmptyState from "../components/EmptyState";
+
 const API_BASE = "https://apis.ayohost.site";
 type Tab = "server" | "local";
 type DlStatus = "queued" | "resolving" | "downloading" | "compiling" | "done" | "failed";
@@ -110,11 +112,7 @@ export default function DownloadsScreen() {
 
       {tab === "local" ? (
         localFiles.length === 0 ? (
-          <View style={styles.center}>
-            <Text style={styles.emptyEmoji}>📁</Text>
-            <Text style={styles.emptyTitle}>No saved files</Text>
-            <Text style={styles.emptyText}>Downloaded episodes will appear here</Text>
-          </View>
+          <EmptyState type="downloads" title="No saved files" subtitle="Downloaded episodes will appear here" />
         ) : (
           <FlatList
             data={localFiles}
@@ -141,11 +139,7 @@ export default function DownloadsScreen() {
       ) : loading ? (
         <View style={styles.center}><ActivityIndicator color={colors.accent} size="large" /></View>
       ) : jobs.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.emptyEmoji}>📥</Text>
-          <Text style={styles.emptyTitle}>No downloads yet</Text>
-          <Text style={styles.emptyText}>Tap "Download MP4" on any episode to start</Text>
-        </View>
+        <EmptyState type="downloads" title="No downloads yet" subtitle='Tap "Download MP4" on any episode to start' />
       ) : (
         <FlatList
           data={jobs}

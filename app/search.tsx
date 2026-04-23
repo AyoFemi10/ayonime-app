@@ -13,6 +13,8 @@ import { AnimeProp, GENRES, getByGenre, searchAnime } from "../lib/api";
 import { addRecentSearch, clearRecentSearches, getRecentSearches } from "../lib/storage";
 import { hapticLight } from "../lib/haptics";
 
+import EmptyState from "../components/EmptyState";
+
 export default function SearchScreen() {
   const { q: initialQ, genre: initialGenre } = useLocalSearchParams<{ q?: string; genre?: string }>();
   const router = useRouter();
@@ -152,11 +154,7 @@ export default function SearchScreen() {
           </View>
         </ScrollView>
       ) : results.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.emptyEmoji}>😔</Text>
-          <Text style={styles.emptyTitle}>No results</Text>
-          <Text style={styles.emptyText}>Try a different search term or genre</Text>
-        </View>
+        <EmptyState type="search" title="No results" subtitle="Try a different search term or browse by genre" />
       ) : (
         <FlatList
           data={results}

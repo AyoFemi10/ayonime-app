@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { colors, radius, spacing } from "../constants/theme";
 import { clearHistory, getHistory, getPreferences, getWatchlist, HistoryItem, Preferences, removeFromWatchlist, savePreferences, WatchlistItem } from "../lib/storage";
+import EmptyState from "../components/EmptyState";
 import { hapticLight, hapticMedium } from "../lib/haptics";
 
 type Tab = "history" | "watchlist" | "prefs" | "about";
@@ -66,7 +67,7 @@ export default function SettingsScreen() {
             keyExtractor={(i) => `${i.animeSession}-${i.episodeSession}`}
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
-            ListEmptyComponent={<EmptyState icon="time-outline" text="No watch history yet" />}
+            ListEmptyComponent={<EmptyState type="history" title="No watch history yet" subtitle="Episodes you watch will appear here" />}
             renderItem={({ item }) => (
               <Pressable
                 style={styles.historyCard}
@@ -90,7 +91,7 @@ export default function SettingsScreen() {
           keyExtractor={(i) => i.session}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          ListEmptyComponent={<EmptyState icon="bookmark-outline" text="No saved anime yet\nTap the bookmark icon on any anime" />}
+          ListEmptyComponent={<EmptyState type="watchlist" title="No saved anime yet" subtitle="Tap the bookmark icon on any anime to save it" />}
           renderItem={({ item }) => (
             <Pressable
               style={styles.historyCard}
@@ -176,15 +177,6 @@ export default function SettingsScreen() {
           <AboutRow label="Developer" value="AYOMIKUN DEV CORP" />
         </ScrollView>
       )}
-    </View>
-  );
-}
-
-function EmptyState({ icon, text }: { icon: React.ComponentProps<typeof Ionicons>["name"]; text: string }) {
-  return (
-    <View style={styles.empty}>
-      <Ionicons name={icon} size={48} color={colors.muted} />
-      <Text style={styles.emptyText}>{text}</Text>
     </View>
   );
 }

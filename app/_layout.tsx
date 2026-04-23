@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Tabs } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as SplashScreen from "expo-splash-screen";
 import { Ionicons } from "@expo/vector-icons";
@@ -9,6 +9,8 @@ import UpdateChecker from "../components/UpdateChecker";
 import OfflineBanner from "../components/OfflineBanner";
 import IntroScreen from "../components/IntroScreen";
 import { colors } from "../constants/theme";
+import { getMyJobIds } from "../lib/downloads";
+import { getJobStatus } from "../lib/api";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -24,10 +26,25 @@ function TabIcon({ name, focused }: { name: React.ComponentProps<typeof Ionicons
 
 export default function RootLayout() {
   const [showIntro, setShowIntro] = useState(true);
+  const [completedDownloads, setCompletedDownloads] = useState(0);
 
   useEffect(() => {
     const timer = setTimeout(() => SplashScreen.hideAsync(), 300);
     return () => clearTimeout(timer);
+  }, []);
+
+  // Poll for completed downloads to show badge
+  useEffect(() => {
+    const check = async () => {
+      const ids = await getMyJobIds();
+      if (!ids.length) { setCompletedDownloads(0); return; }
+      const results = await Promise.allSettled(ids.map(getJobStatus));
+      const done = results.filter((r) => r.status === "fulfilled" && r.value?.status === "done").length;
+      setCompletedDownloads(done);
+    };
+    check();
+    const t = setInterval(check, 5000);
+    return () => clearInterval(t);
   }, []);
 
   return (
@@ -76,6 +93,8 @@ export default function RootLayout() {
           options={{
             title: "Downloads",
             tabBarIcon: ({ focused }) => <TabIcon name="download" focused={focused} />,
+            tabBarBadge: completedDownloads > 0 ? completedDownloads : undefined,
+            tabBarBadgeStyle: { backgroundColor: colors.accent, fontSize: 10 },
           }}
         />
         <Tabs.Screen
