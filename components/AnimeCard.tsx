@@ -8,16 +8,17 @@ import { AnimeProp } from "../lib/api";
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = (width - 32 - 12) / 2;
 
-export default function AnimeCard({ anime }: { anime: AnimeProp }) {
+export default function AnimeCard({ anime, horizontal }: { anime: AnimeProp; horizontal?: boolean }) {
   const router = useRouter();
   const scale = useSharedValue(1);
+  const cardW = horizontal ? CARD_WIDTH * 0.7 : CARD_WIDTH;
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
   return (
-    <Animated.View style={[{ width: CARD_WIDTH }, animStyle]}>
+    <Animated.View style={[{ width: cardW }, animStyle]}>
       <Pressable
         onPressIn={() => { scale.value = withSpring(0.95, { damping: 20, stiffness: 300 }); }}
         onPressOut={() => { scale.value = withSpring(1, { damping: 20, stiffness: 300 }); }}

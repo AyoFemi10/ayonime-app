@@ -1,134 +1,157 @@
-import { useCallback, useEffect, useState } from "react";
-import { Dimensions, FlatList, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator, Dimensions, FlatList,
+  Pressable, ScrollView, StyleSheet, Text, View,
+} from "react-native";
+import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
 import AppHeader from "../components/AppHeader";
 import AnimeCard from "../components/AnimeCard";
 import { SkeletonGrid } from "../components/SkeletonCard";
-import Pagination from "../components/Pagination";
-import { colors, spacing } from "../constants/theme";
-import { AnimeProp, getAiring, getLatestRelease, getTopAnime } from "../lib/api";
+import { colors, radius, spacing } from "../constants/theme";
+import { AnimeProp, GENRES, getAiring, getByGenre, getLatestRelease } from "../lib/api";
 
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = (width - 32 - 12) / 2;
+const FEATURED_GENRES = ["Romance", "Action", "Fantasy", "Comedy", "Thriller"];
 
 export default function HomeScreen() {
-  const [airing, setAiring] = useState<AnimeProp[]>([]);
-  const [top, setTop] = useState<AnimeProp[]>([]);
+  const router = useRouter();
   const [latest, setLatest] = useState<AnimeProp[]>([]);
-  const [latestPage, setLatestPage] = useState(1);
-  const [latestLastPage, setLatestLastPage] = useState(1);
+  const [airing, setAiring] = useState<AnimeProp[]>([]);
+  const [genreData, setGenreData] = useState<Record<string, AnimeProp[]>>({});
   const [loading, setLoading] = useState(true);
-  const [latestLoading, setLatestLoading] = useState(false);
 
   useEffect(() => {
-    Promise.all([getAiring(), getTopAnime(), getLatestRelease(1)])
-      .then(([a, t, l]) => { setAiring(a); setTop(t); setLatest(l.data); setLatestLastPage(l.last_page); })
-      .finally(() => setLoading(false));
+    Promise.all([
+      getLatestRelease(1),
+      getAiring(),
+      ...FEATURED_GENRES.map((g) => getByGenre(g, 1)),
+    ]).then(([l, a, ...genreResults]) => {
+      setLatest(l.data);
+      setAiring(a);
+      const gd: Record<string, AnimeProp[]> = {};
+      FEATURED_GENRES.forEach((g, i) => { gd[g] = genreResults[i].data.slice(0, 10); });
+      setGenreData(gd);
+    }).finally(() => setLoading(false));
   }, []);
 
-  const loadPage = (page: number) => {
-    setLatestLoading(true);
-    getLatestRelease(page).then((l) => { setLatest(l.data); setLatestPage(page); }).finally(() => setLatestLoading(false));
-  };
-
-  const renderCard = useCallback(({ item }: { item: AnimeProp }) => (
-    <AnimeCard anime={item} />
-  ), []);
-
+  const renderCard = useCallback(({ item }: { item: AnimeProp }) => <AnimeCard anime={item} />, []);
   const keyExtractor = useCallback((item: AnimeProp) => item.session, []);
+
+  if (loading) {
+    return (
+      <View style={styles.root}>
+        <StatusBar style="light" />
+        <AppHeader showSearch subtitle="Watch anime free" />
+        <ScrollView contentContainerStyle={styles.content}>
+          <SkeletonGrid count={6} />
+        </ScrollView>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
       <AppHeader showSearch subtitle="Watch anime free" />
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        removeClippedSubviews
-      >
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} removeClippedSubviews>
+
         {/* Hero */}
-        <LinearGradient colors={[colors.accent + "33", colors.bg]} style={styles.hero}>
+        <LinearGradient colors={[colors.accent + "44", colors.bg]} style={styles.hero}>
           <Text style={styles.heroTitle}>Watch. Download.</Text>
           <Text style={styles.heroPink}>Repeat.</Text>
           <Text style={styles.heroSub}>Stream anime in HD or save to your device. Free, forever.</Text>
+          <View style={styles.heroActions}>
+            <Pressable style={styles.heroBrowseBtn} onPress={() => router.push("/search")}>
+              <Text style={styles.heroBrowseText}>Browse All →</Text>
+            </Pressable>
+          </View>
         </LinearGradient>
 
-        {/* Currently Airing */}
-        <Section title="Currently Airing" count={airing.length > 0 ? `${airing.length} shows` : undefined}>
-          {loading ? <SkeletonGrid count={6} /> : (
-            <FlatList
-              data={airing}
-              renderItem={renderCard}
-              keyExtractor={keyExtractor}
-              numColumns={2}
-              columnWrapperStyle={styles.row}
-              scrollEnabled={false}
-              removeClippedSubviews
-              initialNumToRender={6}
-              maxToRenderPerBatch={6}
-              windowSize={3}
-            />
-          )}
-        </Section>
+        {/* Latest Release — horizontal scroll like Netflix */}
+        <HorizontalSection
+          title="🆕 Latest Release"
+          items={latest}
+          renderCard={renderCard}
+          keyExtractor={keyExtractor}
+          onSeeAll={() => router.push({ pathname: "/search", params: { genre: "latest" } })}
+        />
 
-        {/* Top Anime */}
-        {top.length > 0 && (
-          <Section title="Top Anime" badge="★ Popular">
-            <FlatList
-              data={top}
-              renderItem={renderCard}
-              keyExtractor={keyExtractor}
-              numColumns={2}
-              columnWrapperStyle={styles.row}
-              scrollEnabled={false}
-              removeClippedSubviews
-              initialNumToRender={6}
-              maxToRenderPerBatch={6}
-              windowSize={3}
-            />
-          </Section>
+        {/* Currently Airing */}
+        {airing.length > 0 && (
+          <HorizontalSection
+            title="📡 Currently Airing"
+            items={airing}
+            renderCard={renderCard}
+            keyExtractor={keyExtractor}
+          />
         )}
 
-        {/* Latest Release */}
-        <Section title="Latest Release" badge={latestLastPage > 1 ? `Page ${latestPage}/${latestLastPage}` : undefined}>
-          {loading || latestLoading ? <SkeletonGrid count={6} /> : (
-            <FlatList
-              data={latest}
-              renderItem={renderCard}
-              keyExtractor={(item) => `${item.session}-${latestPage}`}
-              numColumns={2}
-              columnWrapperStyle={styles.row}
-              scrollEnabled={false}
-              removeClippedSubviews
-              initialNumToRender={6}
-              maxToRenderPerBatch={6}
-              windowSize={3}
+        {/* Genre rows */}
+        {FEATURED_GENRES.map((genre) =>
+          genreData[genre]?.length > 0 ? (
+            <HorizontalSection
+              key={genre}
+              title={`${genreEmoji(genre)} ${genre}`}
+              items={genreData[genre]}
+              renderCard={renderCard}
+              keyExtractor={keyExtractor}
+              onSeeAll={() => router.push({ pathname: "/search", params: { genre } })}
             />
-          )}
-          {!loading && latestLastPage > 1 && (
-            <Pagination page={latestPage} total={latestLastPage} onChange={loadPage} />
-          )}
-        </Section>
+          ) : null
+        )}
 
       </ScrollView>
     </View>
   );
 }
 
-function Section({ title, count, badge, children }: { title: string; count?: string; badge?: string; children: React.ReactNode }) {
+function HorizontalSection({ title, items, renderCard, keyExtractor, onSeeAll }: {
+  title: string;
+  items: AnimeProp[];
+  renderCard: ({ item }: { item: AnimeProp }) => JSX.Element;
+  keyExtractor: (item: AnimeProp) => string;
+  onSeeAll?: () => void;
+}) {
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         <View style={styles.sectionBar} />
         <Text style={styles.sectionTitle}>{title}</Text>
-        {count ? <Text style={styles.sectionCount}>{count}</Text> : null}
-        {badge ? <View style={styles.badge}><Text style={styles.badgeText}>{badge}</Text></View> : null}
+        {onSeeAll && (
+          <Pressable onPress={onSeeAll}>
+            <Text style={styles.seeAll}>See all →</Text>
+          </Pressable>
+        )}
       </View>
-      {children}
+      <FlatList
+        data={items}
+        renderItem={renderCard}
+        keyExtractor={keyExtractor}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.hList}
+        ItemSeparatorComponent={() => <View style={{ width: 10 }} />}
+        removeClippedSubviews
+        initialNumToRender={4}
+        maxToRenderPerBatch={4}
+        getItemLayout={(_, index) => ({ length: CARD_WIDTH * 0.7, offset: (CARD_WIDTH * 0.7 + 10) * index, index })}
+      />
     </View>
   );
+}
+
+function genreEmoji(genre: string): string {
+  const map: Record<string, string> = {
+    Action: "⚔️", Adventure: "🗺️", Comedy: "😂", Drama: "🎭",
+    Fantasy: "🧙", Horror: "👻", Mecha: "🤖", Music: "🎵",
+    Mystery: "🔍", Psychological: "🧠", Romance: "💕", "Sci-Fi": "🚀",
+    "Slice of Life": "🌸", Sports: "⚽", Supernatural: "✨", Thriller: "😱",
+  };
+  return map[genre] || "🎬";
 }
 
 const styles = StyleSheet.create({
@@ -138,12 +161,13 @@ const styles = StyleSheet.create({
   heroTitle: { color: "#fff", fontSize: 28, fontWeight: "900" },
   heroPink: { color: colors.pink, fontSize: 28, fontWeight: "900", marginTop: -4 },
   heroSub: { color: colors.muted, fontSize: 13, marginTop: 8, lineHeight: 19 },
-  section: { paddingHorizontal: spacing.lg, marginBottom: 32 },
-  sectionHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 16 },
-  sectionBar: { width: 4, height: 24, borderRadius: 4, backgroundColor: colors.accent },
-  sectionTitle: { color: "#fff", fontSize: 20, fontWeight: "900", flex: 1 },
-  sectionCount: { color: colors.muted, fontSize: 13 },
-  badge: { backgroundColor: colors.accent + "22", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3, borderWidth: 1, borderColor: colors.accent + "44" },
-  badgeText: { color: colors.accent, fontSize: 11, fontWeight: "800" },
-  row: { gap: 12, marginBottom: 12 },
+  heroActions: { marginTop: 12 },
+  heroBrowseBtn: { backgroundColor: colors.accent, borderRadius: radius.full, paddingHorizontal: 20, paddingVertical: 10, alignSelf: "flex-start" },
+  heroBrowseText: { color: "#fff", fontWeight: "800", fontSize: 14 },
+  section: { marginBottom: 24 },
+  sectionHeader: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: spacing.lg, marginBottom: 12 },
+  sectionBar: { width: 4, height: 22, borderRadius: 4, backgroundColor: colors.accent },
+  sectionTitle: { color: "#fff", fontSize: 17, fontWeight: "900", flex: 1 },
+  seeAll: { color: colors.accent, fontSize: 13, fontWeight: "700" },
+  hList: { paddingHorizontal: spacing.lg },
 });

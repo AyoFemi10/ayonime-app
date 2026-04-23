@@ -81,6 +81,29 @@ export async function searchAnime(q: string): Promise<AnimeProp[]> {
   }));
 }
 
+export async function getByGenre(genre: string, page = 1): Promise<PagedResult<AnimeProp>> {
+  const r = await fetch(`${API_BASE}/api/genre?genre=${encodeURIComponent(genre)}&page=${page}`);
+  const j = await r.json();
+  return {
+    data: (j.data || []).map((i: any) => ({
+      session: i.session,
+      title: i.title,
+      poster: proxyImage(i.poster),
+      type: i.type,
+      episodes: i.episodes,
+      score: i.score,
+    })),
+    last_page: j.last_page || 1,
+    current_page: j.current_page || page,
+  };
+}
+
+export const GENRES = [
+  "Action", "Adventure", "Comedy", "Drama", "Fantasy",
+  "Horror", "Mecha", "Music", "Mystery", "Psychological",
+  "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller"
+];
+
 export async function getEpisodes(slug: string, title: string): Promise<Episode[]> {
   const r = await fetch(`${API_BASE}/api/anime/${slug}/episodes?anime_name=${encodeURIComponent(title)}`);
   const j = await r.json();
