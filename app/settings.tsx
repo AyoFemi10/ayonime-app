@@ -5,20 +5,22 @@ import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { colors, radius, spacing } from "../constants/theme";
-import { clearHistory, getHistory, getWatchlist, HistoryItem, removeFromWatchlist, WatchlistItem } from "../lib/storage";
-import { hapticMedium } from "../lib/haptics";
+import { clearHistory, getHistory, getPreferences, getWatchlist, HistoryItem, Preferences, removeFromWatchlist, savePreferences, WatchlistItem } from "../lib/storage";
+import { hapticLight, hapticMedium } from "../lib/haptics";
 
-type Tab = "history" | "watchlist" | "about";
+type Tab = "history" | "watchlist" | "prefs" | "about";
 
 export default function SettingsScreen() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("history");
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
+  const [prefs, setPrefs] = useState<Preferences>({ defaultQuality: "best", defaultAudio: "jpn", autoPlay: true });
 
   useEffect(() => {
     getHistory().then(setHistory);
     getWatchlist().then(setWatchlist);
+    getPreferences().then(setPrefs);
   }, []);
 
   const handleClearHistory = () => {
@@ -43,10 +45,10 @@ export default function SettingsScreen() {
 
       {/* Tabs */}
       <View style={styles.tabs}>
-        {(["history", "watchlist", "about"] as Tab[]).map((t) => (
+        {(["history", "watchlist", "prefs", "about"] as Tab[]).map((t) => (
           <Pressable key={t} onPress={() => setTab(t)} style={[styles.tab, tab === t && styles.tabActive]}>
             <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
-              {t === "history" ? "History" : t === "watchlist" ? "Watchlist" : "About"}
+              {t === "history" ? "History" : t === "watchlist" ? "Watchlist" : t === "prefs" ? "Settings" : "About"}
             </Text>
           </Pressable>
         ))}
@@ -106,6 +108,66 @@ export default function SettingsScreen() {
         />
       )}
 
+      {tab === "prefs" && (
+        <ScrollView contentContainerStyle={styles.list}>
+          <Text style={styles.prefSection}>Playback</Text>
+
+          <Text style={styles.prefLabel}>Default Quality</Text>
+          <View style={styles.optRow}>
+            {["best", "1080", "720", "480"].map((q) => (
+              <Pressable
+                key={q}
+                style={[styles.optBtn, prefs.defaultQuality === q && styles.optBtnActive]}
+                onPress={async () => {
+                  hapticLight();
+                  const updated = { ...prefs, defaultQuality: q };
+                  setPrefs(updated);
+                  await savePreferences(updated);
+                }}
+              >
+                <Text style={[styles.optText, prefs.defaultQuality === q && styles.optTextActive]}>
+                  {q === "best" ? "Best" : `${q}p`}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Text style={styles.prefLabel}>Default Audio</Text>
+          <View style={styles.optRow}>
+            {[{ v: "jpn", l: "Japanese" }, { v: "eng", l: "English" }].map((a) => (
+              <Pressable
+                key={a.v}
+                style={[styles.optBtn, prefs.defaultAudio === a.v && styles.optBtnActive]}
+                onPress={async () => {
+                  hapticLight();
+                  const updated = { ...prefs, defaultAudio: a.v };
+                  setPrefs(updated);
+                  await savePreferences(updated);
+                }}
+              >
+                <Text style={[styles.optText, prefs.defaultAudio === a.v && styles.optTextActive]}>{a.l}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Text style={styles.prefSection}>Playback</Text>
+          <View style={styles.toggleRow}>
+            <Text style={styles.toggleLabel}>Auto-play on load</Text>
+            <Pressable
+              style={[styles.toggle, prefs.autoPlay && styles.toggleOn]}
+              onPress={async () => {
+                hapticLight();
+                const updated = { ...prefs, autoPlay: !prefs.autoPlay };
+                setPrefs(updated);
+                await savePreferences(updated);
+              }}
+            >
+              <View style={[styles.toggleThumb, prefs.autoPlay && styles.toggleThumbOn]} />
+            </Pressable>
+          </View>
+        </ScrollView>
+      )}
+
       {tab === "about" && (
         <ScrollView contentContainerStyle={styles.list}>
           <AboutRow label="App Version" value={Constants.expoConfig?.version || "1.0.0"} />
@@ -159,4 +221,17 @@ const styles = StyleSheet.create({
   aboutRow: { flexDirection: "row", justifyContent: "space-between", backgroundColor: colors.card, borderRadius: radius.lg, padding: 14, borderWidth: 1, borderColor: colors.border },
   aboutLabel: { color: colors.text, fontSize: 14 },
   aboutValue: { color: colors.muted, fontSize: 14 },
+  prefSection: { color: colors.muted, fontSize: 11, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1, marginTop: 8, marginBottom: 8 },
+  prefLabel: { color: colors.text, fontSize: 14, fontWeight: "700", marginBottom: 10, marginTop: 4 },
+  optRow: { flexDirection: "row", gap: 8, flexWrap: "wrap", marginBottom: 16 },
+  optBtn: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: 16, paddingVertical: 9 },
+  optBtnActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  optText: { color: colors.muted, fontWeight: "700", fontSize: 14 },
+  optTextActive: { color: "#fff" },
+  toggleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: colors.card, borderRadius: radius.lg, padding: 14, borderWidth: 1, borderColor: colors.border },
+  toggleLabel: { color: colors.text, fontSize: 14 },
+  toggle: { width: 48, height: 26, borderRadius: 13, backgroundColor: colors.border, justifyContent: "center", paddingHorizontal: 2 },
+  toggleOn: { backgroundColor: colors.accent },
+  toggleThumb: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#fff", alignSelf: "flex-start" },
+  toggleThumbOn: { alignSelf: "flex-end" },
 });

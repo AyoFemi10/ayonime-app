@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Dimensions, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import Animated, {
   cancelAnimation, useAnimatedStyle, useSharedValue,
@@ -73,9 +74,10 @@ export default function AnimeCard({ anime, horizontal }: { anime: AnimeProp; hor
             <Image
               source={{ uri: anime.poster }}
               style={[styles.poster, !imageLoaded && { opacity: 0 }]}
-              resizeMode="cover"
+              contentFit="cover"
+              cachePolicy="disk"
               onLoad={() => setImageLoaded(true)}
-              fadeDuration={300}
+              transition={300}
             />
           ) : (
             <View style={[styles.poster, styles.fallback]}>

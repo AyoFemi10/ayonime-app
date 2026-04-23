@@ -103,3 +103,33 @@ export async function getAllProgress(): Promise<Record<string, { currentTime: nu
     return raw ? JSON.parse(raw) : {};
   } catch { return {}; }
 }
+
+// ── Preferences ──────────────────────────────────────────────────────────────
+
+const PREFS_KEY = "ayonime_preferences";
+
+export interface Preferences {
+  defaultQuality: string;
+  defaultAudio: string;
+  autoPlay: boolean;
+}
+
+const DEFAULT_PREFS: Preferences = {
+  defaultQuality: "best",
+  defaultAudio: "jpn",
+  autoPlay: true,
+};
+
+export async function getPreferences(): Promise<Preferences> {
+  try {
+    const raw = await AsyncStorage.getItem(PREFS_KEY);
+    return raw ? { ...DEFAULT_PREFS, ...JSON.parse(raw) } : DEFAULT_PREFS;
+  } catch { return DEFAULT_PREFS; }
+}
+
+export async function savePreferences(prefs: Partial<Preferences>) {
+  try {
+    const current = await getPreferences();
+    await AsyncStorage.setItem(PREFS_KEY, JSON.stringify({ ...current, ...prefs }));
+  } catch {}
+}

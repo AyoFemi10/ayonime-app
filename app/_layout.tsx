@@ -88,8 +88,7 @@ export default function RootLayout() {
             title: "Credits",
             tabBarIcon: ({ focused }) => <TabIcon name="information-circle" focused={focused} />,
           }}
-        />
-        <Tabs.Screen name="anime/[slug]" options={{ href: null }} />
+        />        <Tabs.Screen name="anime/[slug]" options={{ href: null }} />
         <Tabs.Screen name="watch/[slug]" options={{ href: null }} />
       </Tabs>
     </GestureHandlerRootView>

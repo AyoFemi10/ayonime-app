@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator, Dimensions, FlatList, Image,
+  ActivityIndicator, Dimensions, FlatList,
   Pressable, RefreshControl, ScrollView, StyleSheet, Text, View,
 } from "react-native";
+import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
@@ -148,7 +149,7 @@ export default function AnimeScreen() {
               onPress={() => goWatch(ep)}
             >
               {ep.snapshot ? (
-                <Image source={{ uri: ep.snapshot }} style={styles.epImg} resizeMode="cover" />
+                <Image source={{ uri: ep.snapshot }} style={styles.epImg} contentFit="cover" cachePolicy="disk" />
               ) : (
                 <View style={[styles.epImg, styles.epPlaceholder]}>
                   <Text style={styles.epPlaceholderIcon}>▶</Text>

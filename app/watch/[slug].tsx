@@ -11,7 +11,7 @@ import { colors, radius, spacing } from "../../constants/theme";
 import { getStreamUrl } from "../../lib/api";
 import { saveMyJobId } from "../../lib/downloads";
 import { hapticLight, hapticMedium, hapticSuccess, hapticError } from "../../lib/haptics";
-import { addToHistory, saveProgress, getProgress } from "../../lib/storage";
+import { addToHistory, saveProgress, getProgress, getPreferences } from "../../lib/storage";
 
 const API_BASE = "https://apis.ayohost.site";
 
@@ -28,6 +28,14 @@ export default function WatchScreen() {
   const [error, setError] = useState("");
   const [quality, setQuality] = useState("best");
   const [audio, setAudio] = useState("jpn");
+
+  // Load saved preferences as defaults
+  useEffect(() => {
+    getPreferences().then((p) => {
+      setQuality(p.defaultQuality);
+      setAudio(p.defaultAudio);
+    });
+  }, []);
   const [availableQualities, setAvailableQualities] = useState<string[]>([]);
   const [availableAudios, setAvailableAudios] = useState<string[]>([]);
   const [dlStatus, setDlStatus] = useState<DlStatus>("idle");
