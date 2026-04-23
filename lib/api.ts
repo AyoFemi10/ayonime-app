@@ -104,6 +104,42 @@ export const GENRES = [
   "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller"
 ];
 
+export interface AnimeInfo {
+  session: string;
+  title: string;
+  poster?: string;
+  type?: string;
+  episodes?: number;
+  score?: string | number;
+  year?: number;
+  season?: string;
+  status?: string;
+  genres?: string[];
+  synopsis?: string;
+}
+
+export async function getAnimeInfo(slug: string, title: string): Promise<AnimeInfo | null> {
+  try {
+    const r = await fetch(`${API_BASE}/api/anime/${slug}/info?anime_name=${encodeURIComponent(title)}`);
+    const j = await r.json();
+    const d = j.data;
+    if (!d) return null;
+    return {
+      session: d.session,
+      title: d.title,
+      poster: proxyImage(d.poster),
+      type: d.type,
+      episodes: d.episodes,
+      score: d.score,
+      year: d.year,
+      season: d.season,
+      status: d.status,
+      genres: d.genres || [],
+      synopsis: d.synopsis,
+    };
+  } catch { return null; }
+}
+
 export async function getEpisodes(slug: string, title: string): Promise<Episode[]> {
   const r = await fetch(`${API_BASE}/api/anime/${slug}/episodes?anime_name=${encodeURIComponent(title)}`);
   const j = await r.json();

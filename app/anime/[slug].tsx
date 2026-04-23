@@ -7,9 +7,10 @@ import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { colors, radius, spacing } from "../../constants/theme";
-import { Episode, getEpisodes } from "../../lib/api";
+import { AnimeInfo, Episode, getAnimeInfo, getEpisodes } from "../../lib/api";
 import { addToWatchlist, getAllProgress, isInWatchlist, removeFromWatchlist } from "../../lib/storage";
 import { hapticLight, hapticMedium } from "../../lib/haptics";
 
@@ -23,6 +24,7 @@ export default function AnimeScreen() {
   const { slug, title } = useLocalSearchParams<{ slug: string; title: string }>();
   const router = useRouter();
   const [episodes, setEpisodes] = useState<Episode[]>([]);
+  const [animeInfo, setAnimeInfo] = useState<AnimeInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
@@ -31,13 +33,15 @@ export default function AnimeScreen() {
   const [progress, setProgress] = useState<Record<string, { pct: number }>>({});
 
   const loadData = async () => {
-    const [eps, prog, wl] = await Promise.all([
+    const [eps, info, prog, wl] = await Promise.all([
       getEpisodes(slug, title || slug),
+      getAnimeInfo(slug, title || slug),
       getAllProgress(),
       isInWatchlist(slug),
       AsyncStorage.getItem(`last_watched_${slug}`).then(setLastWatched),
     ]);
     setEpisodes(eps);
+    setAnimeInfo(info);
     setProgress(prog);
     setInWatchlist(wl);
   };
@@ -111,9 +115,41 @@ export default function AnimeScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
       >
 
+        {/* Anime info card */}
+        {animeInfo && (
+          <View style={styles.infoCard}>
+            {animeInfo.poster && (
+              <Image source={{ uri: animeInfo.poster }} style={styles.infoPoster} contentFit="cover" cachePolicy="disk" />
+            )}
+            <View style={styles.infoDetails}>
+              {animeInfo.score ? (
+                <View style={styles.scoreBadge}>
+                  <Text style={styles.scoreText}>★ {animeInfo.score}</Text>
+                </View>
+              ) : null}
+              <View style={styles.metaRow}>
+                {animeInfo.type ? <Text style={styles.metaChip}>{animeInfo.type}</Text> : null}
+                {animeInfo.year ? <Text style={styles.metaChip}>{animeInfo.year}</Text> : null}
+                {animeInfo.status ? <Text style={styles.metaChip}>{animeInfo.status}</Text> : null}
+              </View>
+              {animeInfo.genres && animeInfo.genres.length > 0 && (
+                <View style={styles.genreRow}>
+                  {animeInfo.genres.slice(0, 4).map((g) => (
+                    <View key={g} style={styles.genreChip}>
+                      <Text style={styles.genreText}>{g}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+              {animeInfo.synopsis ? (
+                <Text style={styles.synopsis} numberOfLines={4}>{animeInfo.synopsis}</Text>
+              ) : null}
+            </View>
+          </View>
+        )}
+
         {/* Continue watching */}
-        {lastWatchedEp && (
-          <Pressable style={styles.continueBanner} onPress={() => goWatch(lastWatchedEp)}>
+        {lastWatchedEp && (          <Pressable style={styles.continueBanner} onPress={() => goWatch(lastWatchedEp)}>
             <View style={styles.continueLeft}>
               <View style={styles.continuePlay}>
                 <Text style={styles.continuePlayIcon}>▶</Text>
@@ -234,4 +270,15 @@ const styles = StyleSheet.create({
   epDur: { color: colors.muted, fontSize: 11, marginTop: 2 },
   progressTrack: { height: 3, backgroundColor: colors.border, marginHorizontal: 0 },
   progressFill: { height: "100%", backgroundColor: colors.accent },
+  infoCard: { backgroundColor: colors.card, borderRadius: radius.xl, overflow: "hidden", marginBottom: 16, borderWidth: 1, borderColor: colors.border },
+  infoPoster: { width: "100%", height: 180 },
+  infoDetails: { padding: 14, gap: 10 },
+  scoreBadge: { alignSelf: "flex-start", backgroundColor: "rgba(250,204,21,.15)", borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: "rgba(250,204,21,.3)" },
+  scoreText: { color: "#facc15", fontSize: 13, fontWeight: "800" },
+  metaRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+  metaChip: { color: colors.muted, fontSize: 12, backgroundColor: colors.surface, borderRadius: radius.sm, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: colors.border },
+  genreRow: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
+  genreChip: { backgroundColor: colors.accent + "22", borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: colors.accent + "44" },
+  genreText: { color: colors.accent, fontSize: 11, fontWeight: "700" },
+  synopsis: { color: colors.muted, fontSize: 13, lineHeight: 20 },
 });
