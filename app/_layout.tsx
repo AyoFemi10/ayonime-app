@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Tabs } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { StyleSheet, View } from "react-native";
@@ -7,6 +7,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { Ionicons } from "@expo/vector-icons";
 import UpdateChecker from "../components/UpdateChecker";
 import OfflineBanner from "../components/OfflineBanner";
+import IntroScreen from "../components/IntroScreen";
 import { colors } from "../constants/theme";
 
 SplashScreen.preventAutoHideAsync();
@@ -22,9 +23,10 @@ function TabIcon({ name, focused }: { name: React.ComponentProps<typeof Ionicons
 }
 
 export default function RootLayout() {
+  const [showIntro, setShowIntro] = useState(true);
+
   useEffect(() => {
-    // Hide splash after a short delay to let fonts/assets load
-    const timer = setTimeout(() => SplashScreen.hideAsync(), 500);
+    const timer = setTimeout(() => SplashScreen.hideAsync(), 300);
     return () => clearTimeout(timer);
   }, []);
 
@@ -33,6 +35,7 @@ export default function RootLayout() {
       <StatusBar style="light" backgroundColor={colors.bg} />
       <OfflineBanner />
       <UpdateChecker />
+      {showIntro && <IntroScreen onDone={() => setShowIntro(false)} />}
       <Tabs
         screenOptions={{
           headerShown: false,
