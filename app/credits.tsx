@@ -24,7 +24,7 @@ export default function CreditsScreen() {
           <View style={styles.socialRow}>
             <SocialBtn label="Telegram" emoji="✈️" url="https://t.me/ayomikundev" />
             <SocialBtn label="GitHub" emoji="🐙" url="https://github.com/AyoFemi10" />
-            <SocialBtn label="Channel" emoji="📢" url="https://t.me/ayomikun_channel" />
+            <SocialBtn label="Channel" emoji="📢" url="https://t.me/ayomikun_" />
           </View>
         </LinearGradient>
 
