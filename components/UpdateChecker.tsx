@@ -4,7 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import { colors, radius, spacing } from "../constants/theme";
 
-const API_BASE = "https://apis.ayohost.site";
+const API_BASE = "https://animapi.ayohost.site";
 const CURRENT_VERSION = Constants.expoConfig?.version || "1.0.0";
 
 interface VersionInfo {
@@ -49,8 +49,18 @@ export default function UpdateChecker() {
     } catch {}
   };
 
-  const handleUpdate = () => {
-    if (updateInfo) Linking.openURL(updateInfo.download_url);
+  const handleUpdate = async () => {
+    if (!updateInfo) return;
+    try {
+      const supported = await Linking.canOpenURL(updateInfo.download_url);
+      if (supported) {
+        await Linking.openURL(updateInfo.download_url);
+      } else {
+        Alert.alert("Cannot open URL", "Please visit ayonime.ayohost.site to download the update.");
+      }
+    } catch {
+      Alert.alert("Update", "Visit ayonime.ayohost.site to download the latest version.");
+    }
   };
 
   const handleDismiss = async () => {

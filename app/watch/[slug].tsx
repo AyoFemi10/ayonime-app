@@ -16,7 +16,7 @@ import { saveMyJobId } from "../../lib/downloads";
 import { hapticLight, hapticMedium, hapticSuccess, hapticError } from "../../lib/haptics";
 import { addToHistory, saveProgress, getProgress, getPreferences } from "../../lib/storage";
 
-const API_BASE = "https://apis.ayohost.site";
+const API_BASE = "https://animapi.ayohost.site";
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 type DlStatus = "idle" | "requesting" | "downloading" | "saving" | "done" | "failed";

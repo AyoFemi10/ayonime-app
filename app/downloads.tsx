@@ -11,7 +11,7 @@ import { getLocalDownloads, LocalDownload, removeLocalDownload } from "../lib/st
 
 import EmptyState from "../components/EmptyState";
 
-const API_BASE = "https://apis.ayohost.site";
+const API_BASE = "https://animapi.ayohost.site";
 type Tab = "server" | "local";
 type DlStatus = "queued" | "resolving" | "downloading" | "compiling" | "done" | "failed";
 interface Job { job_id: string; status: DlStatus; progress: number; file_path: string | null; error: string | null; anime_title: string; episode_number: number; }

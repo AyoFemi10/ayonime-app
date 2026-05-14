@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { colors } from "../constants/theme";
 
-const API_BASE = "https://apis.ayohost.site";
+const API_BASE = "https://animapi.ayohost.site";
 
 export default function OfflineBanner() {
   const [offline, setOffline] = useState(false);

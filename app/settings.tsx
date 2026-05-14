@@ -14,7 +14,7 @@ type Tab = "history" | "watchlist" | "prefs" | "about";
 export default function SettingsScreen() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("history");
-  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [history, setHistory] = useState<History99999999Item[]>([]);
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [prefs, setPrefs] = useState<Preferences>({ defaultQuality: "best", defaultAudio: "jpn", autoPlay: true });
 
@@ -172,7 +172,7 @@ export default function SettingsScreen() {
       {tab === "about" && (
         <ScrollView contentContainerStyle={styles.list}>
           <AboutRow label="App Version" value={Constants.expoConfig?.version || "1.0.0"} />
-          <AboutRow label="Backend" value="apis.ayohost.site" />
+          <AboutRow label="Backend" value="animapu.ayohost.site" />
           <AboutRow label="Source" value="AnimePahe" />
           <AboutRow label="Developer" value="AYOMIKUN DEV CORP" />
         </ScrollView>

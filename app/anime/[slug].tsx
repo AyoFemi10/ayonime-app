@@ -28,23 +28,29 @@ export default function AnimeScreen() {
   const [animeInfo, setAnimeInfo] = useState<AnimeInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(false);
   const [page, setPage] = useState(1);
   const [lastWatched, setLastWatched] = useState<string | null>(null);
   const [inWatchlist, setInWatchlist] = useState(false);
   const [progress, setProgress] = useState<Record<string, { pct: number }>>({});
 
   const loadData = async () => {
-    const [eps, info, prog, wl] = await Promise.all([
-      getEpisodes(slug, title || slug),
-      getAnimeInfo(slug, title || slug),
-      getAllProgress(),
-      isInWatchlist(slug),
-      AsyncStorage.getItem(`last_watched_${slug}`).then(setLastWatched),
-    ]);
-    setEpisodes(eps);
-    setAnimeInfo(info);
-    setProgress(prog);
-    setInWatchlist(wl);
+    try {
+      const [eps, info, prog, wl] = await Promise.all([
+        getEpisodes(slug, title || slug).catch(() => [] as Episode[]),
+        getAnimeInfo(slug, title || slug).catch(() => null),
+        getAllProgress().catch(() => ({} as Record<string, { pct: number }>)),
+        isInWatchlist(slug).catch(() => false),
+        AsyncStorage.getItem(`last_watched_${slug}`).then(setLastWatched).catch(() => {}),
+      ]);
+      setEpisodes(eps);
+      setAnimeInfo(info);
+      setProgress(prog);
+      setInWatchlist(wl);
+      setError(false);
+    } catch {
+      setError(true);
+    }
   };
 
   useEffect(() => {
@@ -56,7 +62,6 @@ export default function AnimeScreen() {
     await loadData();
     setRefreshing(false);
   };
-
   const toggleWatchlist = async () => {
     hapticMedium();
     if (inWatchlist) {
@@ -113,6 +118,33 @@ export default function AnimeScreen() {
           {Array.from({ length: 6 }).map((_, i) => (
             <View key={i} style={styles.skeletonEp} />
           ))}
+        </View>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.root}>
+        <StatusBar style="light" />
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+            <Text style={styles.backArrow}>←</Text>
+          </Pressable>
+          <View style={styles.headerInfo}>
+            <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
+          </View>
+        </View>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, padding: 32 }}>
+          <Text style={{ fontSize: 40 }}>⚠️</Text>
+          <Text style={{ color: "#fff", fontSize: 16, fontWeight: "800", textAlign: "center" }}>Failed to load</Text>
+          <Text style={{ color: colors.muted, fontSize: 13, textAlign: "center" }}>Check your connection and try again.</Text>
+          <Pressable
+            style={{ backgroundColor: colors.accent, borderRadius: radius.lg, paddingHorizontal: 28, paddingVertical: 12 }}
+            onPress={() => { setError(false); setLoading(true); loadData().finally(() => setLoading(false)); }}
+          >
+            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>↺  Retry</Text>
+          </Pressable>
         </View>
       </View>
     );

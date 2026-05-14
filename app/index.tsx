@@ -29,19 +29,23 @@ export default function HomeScreen() {
   const loadingGenres = useRef<Set<string>>(new Set());
 
   const loadInitial = useCallback(async () => {
-    const [l, a, history] = await Promise.all([
-      getLatestRelease(1),
-      getAiring(),
-      getHistory(),
-    ]);
-    setLatest(l.data);
-    setAiring(a);
-    // Pick a random featured from latest
-    if (l.data.length > 0) setFeatured(l.data[Math.floor(Math.random() * Math.min(5, l.data.length))]);
-    // Continue watching — last 5 unique anime
-    const seen = new Set<string>();
-    const cw = history.filter((h) => { if (seen.has(h.animeSession)) return false; seen.add(h.animeSession); return true; }).slice(0, 5);
-    setContinueWatching(cw);
+    try {
+      const [l, a, history] = await Promise.all([
+        getLatestRelease(1).catch(() => ({ data: [], last_page: 1, current_page: 1 })),
+        getAiring().catch(() => []),
+        getHistory().catch(() => []),
+      ]);
+      setLatest(l.data);
+      setAiring(a);
+      // Pick a random featured from latest
+      if (l.data.length > 0) setFeatured(l.data[Math.floor(Math.random() * Math.min(5, l.data.length))]);
+      // Continue watching — last 5 unique anime
+      const seen = new Set<string>();
+      const cw = history.filter((h) => { if (seen.has(h.animeSession)) return false; seen.add(h.animeSession); return true; }).slice(0, 5);
+      setContinueWatching(cw);
+    } catch {
+      // Network error — show empty state
+    }
   }, []);
 
   useEffect(() => { loadInitial().finally(() => setLoading(false)); }, []);
