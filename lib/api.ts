@@ -1,4 +1,4 @@
-const API_BASE = "https://animapi.ayohost.site";
+const API_BASE = "https://apis.ayohost.site";
 
 export function proxyImage(url?: string): string | undefined {
   if (!url) return undefined;
@@ -172,7 +172,7 @@ export async function getStreamUrl(
   return streamPath;
 }
 
-const API_BASE_URL = "https://animapi.ayohost.site";
+const API_BASE_URL = "https://apis.ayohost.site";
 
 export async function startDownload(params: {
   anime_slug: string;
